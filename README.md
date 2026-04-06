@@ -37,35 +37,6 @@ Results are streamed back to the UI in real time via SSE. You can edit the targe
 
 ---
 
-## Project Structure
-
-
-ma-prospecting-platform/
-├── backend/
-│ ├── app/
-│ │ ├── clients/ # Anthropic, Exa, FMP, scraper
-│ │ ├── models/ # Pydantic models (pipeline, prospect, signal, scoring)
-│ │ ├── prompts/ # Claude prompt templates
-│ │ ├── routers/ # FastAPI routes (pipeline, chat, health)
-│ │ ├── services/ # Core logic (profiler, generator, extractor, scorer)
-│ │ ├── storage/ # SQLite DB + repositories
-│ │ ├── utils/ # Retry, text processing, scrape quality
-│ │ └── main.py
-│ ├── tests/
-│ ├── .env.example
-│ └── pyproject.toml
-├── frontend/
-│ ├── app/ # Next.js app router pages
-│ ├── components/ # UI components (chat, results, target, layout)
-│ ├── hooks/ # usePipeline, useChat, useWeights
-│ ├── lib/ # API client, types, constants
-│ └── package.json
-├── docker-compose.yml
-├── Makefile
-└── .gitignore
-
-
----
 
 ## Prerequisites
 
