@@ -1,0 +1,221 @@
+import asyncio
+import logging
+import uuid
+
+from app.cache.cache_manager import cache_get, cache_set
+from app.cache.keys import transcript_key, signal_key, profile_hash
+from app.clients.anthropic_client import call_claude
+from app.clients.exa_client import search_ma_press_snippets
+from app.clients.fmp_client import get_recent_transcripts, resolve_listed_ticker
+from app.config import settings
+from app.models.prospect import Prospect
+from app.models.signal import Signal, SignalType, SignalStrength
+from app.models.target import TargetProfile
+from app.prompts.signal_extraction import SIGNAL_SYSTEM_PROMPT, build_signal_prompt
+from app.utils.text_processing import has_acquisition_keywords, chunk_text
+
+logger = logging.getLogger(__name__)
+
+
+async def extract_all_signals(
+    prospects: list[Prospect],
+    target_profile: TargetProfile,
+    custom_keywords: list[str] | None = None,
+    known_listed_symbols: frozenset[str] | None = None,
+) -> dict[str, list[Signal]]:
+    """Fan out signal extraction across all prospects with concurrency control."""
+    semaphore = asyncio.Semaphore(settings.max_concurrent_claude_calls)
+    target_dict = target_profile.model_dump(exclude={"raw_scraped_text"})
+    ph = profile_hash(str(target_dict))
+    kw = custom_keywords or []
+    known = known_listed_symbols or frozenset()
+
+    tasks = [
+        _extract_for_prospect(prospect, target_dict, ph, kw, known, semaphore)
+        for prospect in prospects
+    ]
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    signals_map: dict[str, list[Signal]] = {}
+    for prospect, result in zip(prospects, results):
+        if isinstance(result, Exception):
+            logger.error(f"Signal extraction failed for {prospect.company_name}: {result}")
+            signals_map[prospect.id] = []
+        else:
+            signals_map[prospect.id] = result
+
+    total = sum(len(v) for v in signals_map.values())
+    logger.info(f"Extracted {total} signals across {len(prospects)} prospects")
+    return signals_map
+
+
+async def _extract_for_prospect(
+    prospect: Prospect,
+    target_dict: dict,
+    ph: str,
+    custom_keywords: list[str],
+    known_listed_symbols: frozenset[str],
+    semaphore: asyncio.Semaphore,
+) -> list[Signal]:
+    """Extract signals for a single prospect."""
+    async with semaphore:
+        if not prospect.is_listed:
+            return _generate_private_signals(prospect)
+
+        resolved = await resolve_listed_ticker(
+            prospect.ticker,
+            prospect.company_name,
+            known_listed_symbols if known_listed_symbols else None,
+        )
+        ticker_for_fetch = resolved or prospect.ticker
+        if not ticker_for_fetch:
+            logger.info(f"No resolvable ticker for listed prospect {prospect.company_name}")
+            return []
+
+        prefilter_mode = (settings.signal_prefilter_mode or "strict").lower()
+
+        transcripts = await _get_transcripts_cached(ticker_for_fetch)
+        if not transcripts:
+            logger.info(f"No transcripts found for {prospect.company_name} ({ticker_for_fetch})")
+
+        all_signals: list[Signal] = []
+        for transcript in transcripts:
+            content = transcript.get("content", "")
+            quarter = f"Q{transcript.get('quarter')} FY{str(transcript.get('year', ''))[-2:]}"
+
+            if not has_acquisition_keywords(content, custom_keywords, mode=prefilter_mode):
+                logger.debug(f"Skipping {ticker_for_fetch} {quarter} — no acquisition keywords")
+                continue
+
+            cache_key = signal_key(ticker_for_fetch, quarter, ph)
+            cached = await cache_get(cache_key)
+            if cached is not None:
+                all_signals.extend([Signal(**s) for s in cached])
+                continue
+
+            signals = await _extract_from_transcript(
+                company_name=prospect.company_name,
+                transcript_text=content,
+                quarter=quarter,
+                target_dict=target_dict,
+                prospect_id=prospect.id,
+                custom_keywords=custom_keywords or None,
+                content_kind="earnings_call",
+            )
+
+            await cache_set(cache_key, [s.model_dump() for s in signals])
+            all_signals.extend(signals)
+
+        if settings.exa_signal_enrichment:
+            web_text = await search_ma_press_snippets(
+                prospect.company_name,
+                ticker_for_fetch,
+                num_results=settings.exa_signal_enrichment_max_results,
+            )
+            if web_text.strip():
+                wkey = signal_key(ticker_for_fetch, "web_enrichment", ph)
+                cached_web = await cache_get(wkey)
+                if cached_web is not None:
+                    all_signals.extend([Signal(**s) for s in cached_web])
+                elif not has_acquisition_keywords(
+                    web_text, custom_keywords, mode=prefilter_mode
+                ):
+                    logger.debug(f"Skipping Exa snippets for {ticker_for_fetch} — keyword prefilter")
+                else:
+                    web_signals = await _extract_from_transcript(
+                        company_name=prospect.company_name,
+                        transcript_text=web_text,
+                        quarter="Web/IR",
+                        target_dict=target_dict,
+                        prospect_id=prospect.id,
+                        custom_keywords=custom_keywords or None,
+                        content_kind="web_press",
+                    )
+                    await cache_set(wkey, [s.model_dump() for s in web_signals])
+                    all_signals.extend(web_signals)
+
+        return all_signals
+
+
+async def _get_transcripts_cached(ticker: str) -> list[dict]:
+    """Fetch transcripts with caching."""
+    cache_key = f"transcripts:{ticker}"
+    cached = await cache_get(cache_key)
+    if cached:
+        return cached
+
+    transcripts = await get_recent_transcripts(ticker, settings.transcript_quarters)
+    if transcripts:
+        await cache_set(cache_key, transcripts, ttl_seconds=86400 * 30)
+    return transcripts
+
+
+async def _extract_from_transcript(
+    company_name: str,
+    transcript_text: str,
+    quarter: str,
+    target_dict: dict,
+    prospect_id: str,
+    custom_keywords: list[str] | None,
+    content_kind: str = "earnings_call",
+) -> list[Signal]:
+    """Call Claude to extract signals from a single transcript or web snippet block."""
+    chunks = chunk_text(transcript_text, max_chars=40000)
+    all_raw_signals = []
+
+    for chunk in chunks:
+        prompt = build_signal_prompt(
+            company_name=company_name,
+            transcript_text=chunk,
+            quarter=quarter,
+            target_profile=target_dict,
+            custom_keywords=custom_keywords,
+            content_kind=content_kind,
+        )
+        try:
+            result = await call_claude(
+                prompt=prompt,
+                system_prompt=SIGNAL_SYSTEM_PROMPT,
+                max_tokens=2048,
+                temperature=0.0,
+                response_json=True,
+            )
+            if isinstance(result, list):
+                all_raw_signals.extend(result)
+        except Exception as e:
+            logger.warning(f"Signal extraction failed for {company_name} {quarter}: {e}")
+
+    return [
+        Signal(
+            id=str(uuid.uuid4()),
+            prospect_id=prospect_id,
+            quote=s.get("quote", ""),
+            signal_type=SignalType(s.get("signal_type", "acquisition_intent")),
+            strength=SignalStrength(s.get("strength", "low")),
+            source_document=s.get("source_document", f"{quarter} Earnings Call"),
+            source_quarter=s.get("source_quarter", quarter),
+            source_url=None,
+            reasoning=s.get("reasoning", ""),
+        )
+        for s in all_raw_signals
+        if s.get("quote") and s.get("signal_type") and s.get("strength")
+    ]
+
+
+def _generate_private_signals(prospect: Prospect) -> list[Signal]:
+    """For private companies, generate a product-mix based signal."""
+    if not prospect.product_mix_notes:
+        return []
+    return [
+        Signal(
+            id=str(uuid.uuid4()),
+            prospect_id=prospect.id,
+            quote=prospect.product_mix_notes,
+            signal_type=SignalType.PRODUCT_MIX_MATCH,
+            strength=SignalStrength.MEDIUM if prospect.sector_relevance == "exact_match" else SignalStrength.LOW,
+            source_document="Company Profile",
+            source_quarter="N/A",
+            reasoning=f"Private company with {prospect.sector_relevance} sector relevance and complementary product mix.",
+        )
+    ]
