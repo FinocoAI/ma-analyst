@@ -5,8 +5,10 @@ If the source is thin, boilerplate-only, or unclear, use empty strings for unkno
 Respond ONLY with valid JSON — no preamble, no explanation."""
 
 
-def build_profile_prompt(scraped_text: str) -> str:
+def build_profile_prompt(scraped_text: str, url: str = "") -> str:
     return f"""Analyse the following website content and produce a structured company profile.
+
+Website URL: {url or "unknown"}
 
 Website content:
 ---
