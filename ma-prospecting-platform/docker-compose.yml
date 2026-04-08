@@ -24,7 +24,7 @@ services:
     #   - ./frontend/public:/app/public
     #   - fe_node_modules:/app/node_modules
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:8000}
+      - NEXT_PUBLIC_API_URL=http://qw4s0kkog0sw8ogc8scgs0ws.77.42.45.141.sslip.io
     depends_on:
       - backend
 
