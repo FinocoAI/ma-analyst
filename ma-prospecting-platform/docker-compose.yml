@@ -3,23 +3,31 @@ version: "3.9"
 services:
   backend:
     build: ./backend
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
+    expose:
+      - "8000"
+    # volumes:
+    #   - ./backend/app:/app/app
     env_file:
       - ./backend/.env
     environment:
       - DATABASE_URL=sqlite+aiosqlite:///./ma_prospecting.db
+      - CORS_ORIGINS=http://localhost:3000,http://jg0w8o84o4o0cwcswgc80440.77.42.45.141.sslip.io
 
   frontend:
     build: ./frontend
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    expose:
+      - "3000"
+    # volumes:
+    #   - ./frontend/app:/app/app
+    #   - ./frontend/components:/app/components
+    #   - ./frontend/hooks:/app/hooks
+    #   - ./frontend/lib:/app/lib
+    #   - ./frontend/public:/app/public
+    #   - fe_node_modules:/app/node_modules
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=http://qw4s0kkog0sw8ogc8scgs0ws.77.42.45.141.sslip.io
     depends_on:
       - backend
+
+volumes:
+  fe_node_modules:
