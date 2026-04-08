@@ -9,4 +9,4 @@ ENV PATH /app/node_modules/.bin:$PATH
 COPY . .
 
 EXPOSE 3010
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "dev", "--port", "3010"]
