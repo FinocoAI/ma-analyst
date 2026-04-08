@@ -24,4 +24,4 @@ RUN uv sync
 
 EXPOSE 8010
 # Use uv run to execute uvicorn within the managed virtual environment
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8010", "--reload"]
