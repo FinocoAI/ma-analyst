@@ -24,7 +24,7 @@ services:
       - ./frontend/public:/app/public
       - fe_node_modules:/app/node_modules
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8010
+      - NEXT_PUBLIC_API_URL=http://0.0.0.0:8010
     depends_on:
       - backend
 
