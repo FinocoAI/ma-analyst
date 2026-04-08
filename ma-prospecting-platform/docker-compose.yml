@@ -6,7 +6,7 @@ services:
     ports:
       - "8010:8000"
     volumes:
-      - ./backend:/app
+      - ./backend/app:/app/app
     env_file:
       - ./backend/.env
     environment:
@@ -18,7 +18,11 @@ services:
     ports:
       - "3010:3000"
     volumes:
-      - ./frontend:/app
+      - ./frontend/app:/app/app
+      - ./frontend/components:/app/components
+      - ./frontend/hooks:/app/hooks
+      - ./frontend/lib:/app/lib
+      - ./frontend/public:/app/public
       - /app/node_modules
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8010
