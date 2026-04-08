@@ -4,22 +4,23 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8000"
+      - "8010:8000"
     volumes:
       - ./backend:/app
     env_file:
       - ./backend/.env
     environment:
       - DATABASE_URL=sqlite+aiosqlite:///./ma_prospecting.db
+      - PYTHONPATH=/app
 
   frontend:
     build: ./frontend
     ports:
-      - "3000"
+      - "3010:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=http://localhost:8010
     depends_on:
       - backend
