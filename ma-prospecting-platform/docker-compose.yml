@@ -11,6 +11,7 @@ services:
       - ./backend/.env
     environment:
       - DATABASE_URL=sqlite+aiosqlite:///./ma_prospecting.db
+      - CORS_ORIGINS=http://localhost:3000,http://jg0w8o84o4o0cwcswgc80440.77.42.45.141.sslip.io
 
   frontend:
     build: ./frontend
