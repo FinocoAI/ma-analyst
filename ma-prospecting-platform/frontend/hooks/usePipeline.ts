@@ -71,7 +71,14 @@ export function usePipeline() {
   const confirmProfile = async (profile: TargetProfile) => {
     if (!state.runId) return;
     await apiConfirmProfile(state.runId, profile);
-    setState((prev) => ({ ...prev, status: "prospecting", progressPct: 35 }));
+    setState((prev) => ({
+      ...prev,
+      status: "prospecting",
+      currentStep: "Finding potential buyers...",
+      progressPct: 35,
+      error: null,
+    }));
+    await poll(state.runId);
   };
 
   const triggerRescore = async (weights: ScoringWeights) => {

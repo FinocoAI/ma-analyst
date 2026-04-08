@@ -1,8 +1,8 @@
 import json
 
 PROSPECT_SYSTEM_PROMPT = """You are a senior M&A analyst building a buyer prospect list for a sell-side mandate.
-You understand Indian corporate landscape, listed companies, PE funds, and conglomerates.
-Respond ONLY with valid JSON — no preamble, no explanation."""
+You understand the Indian corporate landscape, listed companies, PE funds, and conglomerates.
+Respond ONLY with valid JSON - no preamble, no explanation."""
 
 
 def build_listed_prospect_prompt(
@@ -23,7 +23,7 @@ def build_listed_prospect_prompt(
 TARGET COMPANY PROFILE:
 {json.dumps(target_profile, indent=2)}
 
-CANDIDATE COMPANIES (from FMP + web search — rows may include "symbol" from FMP):
+CANDIDATE COMPANIES (from live web search):
 {json.dumps(company_list, indent=2)}
 
 USER FILTERS:
@@ -35,7 +35,7 @@ For each company that is a plausible buyer, produce an entry in this JSON array 
 [
   {{
     "company_name": "string",
-    "ticker": "exact FMP symbol from the candidate row when provided (e.g. THERMAX.NS); else best-known NSE/BSE symbol",
+    "ticker": "exact symbol from the candidate row when provided; else best-known NSE/BSE symbol",
     "is_listed": true,
     "persona": "strategic" | "private_equity" | "conglomerate",
     "sector": "company's primary sector",
@@ -44,7 +44,7 @@ For each company that is a plausible buyer, produce an entry in this JSON array 
     "estimated_revenue_inr_cr": number or null,
     "estimated_revenue_usd_m": number or null,
     "website_url": "string or null",
-    "source": "fmp"
+    "source": "claude_search"
   }}
 ]
 
@@ -54,13 +54,13 @@ Rules:
 - Exclude companies whose revenue is LESS than the target company's revenue (Exception: Do not apply this rule to Private Equity firms, as they do not report traditional corporate revenue)
 - Rank: Strategic buyers first, then PE funds, then Conglomerates (unless conglomerate has direct sector match)
 - sector_relevance "exact_match" = operates in the same L3 niche; "adjacent" = same L2; "tangential" = same L1 only
-- If a company clearly does not fit, exclude it — quality over quantity
+- If a company clearly does not fit, exclude it - quality over quantity
 - Return empty array [] if no companies qualify"""
 
 
 def build_private_prospect_prompt(
     target_profile: dict,
-    exa_results: list[dict],
+    candidate_results: list[dict],
     personas: list[str],
     geography: str = "India",
 ) -> str:
@@ -72,7 +72,7 @@ TARGET COMPANY PROFILE:
 {json.dumps(target_profile, indent=2)}
 
 WEB SEARCH RESULTS (potential private companies found):
-{json.dumps(exa_results, indent=2)}
+{json.dumps(candidate_results, indent=2)}
 
 USER FILTERS:
 - Buyer personas to include: {personas_str}
@@ -91,7 +91,7 @@ For each private company that is a plausible buyer, produce an entry in this JSO
     "estimated_revenue_inr_cr": null,
     "estimated_revenue_usd_m": null,
     "website_url": "their website URL",
-    "source": "exa"
+    "source": "claude_search"
   }}
 ]
 

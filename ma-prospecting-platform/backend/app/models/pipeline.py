@@ -56,5 +56,5 @@ class PipelineStatusResponse(BaseModel):
     current_step: str = ""
     progress_pct: float = 0.0
     error_message: str | None = None
-    # Set when profile exists (e.g. after Step 1): high | curl_boost | exa_enriched | playwright | low
+    # Set when profile exists (e.g. after Step 1): high | curl_boost | claude_enriched | playwright | low
     scrape_content_quality: str | None = None

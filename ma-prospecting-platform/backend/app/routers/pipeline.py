@@ -12,7 +12,7 @@ from app.services.pipeline_orchestrator import (
     confirm_profile_and_continue,
     rescore_pipeline,
 )
-from app.storage.repositories import get_pipeline_run, update_pipeline_run
+from app.storage.repositories import get_pipeline_run
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])

@@ -38,14 +38,22 @@ async def handle_chat_message(
 
     full_prompt = conversation + f"User: {user_message}\n\nAssistant:"
 
+    total_signals = sum(len(v) for v in all_signals.values())
+    logger.info(
+        "[CHAT] run=%s | mode=sync | history_turns=%d | prospects=%d | signals=%d | msg_chars=%d",
+        run_id, len(history), len(scored_prospects), total_signals, len(user_message),
+    )
+
     response = await call_claude(
         prompt=full_prompt,
         system_prompt=system_prompt,
         max_tokens=4096,
         temperature=0.4,
         response_json=False,
+        label="chat/sync",
     )
 
+    logger.info("[CHAT] run=%s | response_chars=%d", run_id, len(response))
     return response
 
 
@@ -76,10 +84,17 @@ async def stream_chat_message(
 
     full_prompt = conversation + f"User: {user_message}\n\nAssistant:"
 
+    total_signals = sum(len(v) for v in all_signals.values())
+    logger.info(
+        "[CHAT] run=%s | mode=stream | history_turns=%d | prospects=%d | signals=%d | msg_chars=%d",
+        run_id, len(history), len(scored_prospects), total_signals, len(user_message),
+    )
+
     async for chunk in call_claude_streaming(
         prompt=full_prompt,
         system_prompt=system_prompt,
         max_tokens=4096,
         temperature=0.4,
+        label="chat/stream",
     ):
         yield chunk
