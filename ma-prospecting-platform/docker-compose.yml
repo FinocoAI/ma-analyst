@@ -7,11 +7,11 @@ services:
       - "8010:8000"
     volumes:
       - ./backend/app:/app/app
+      - ./backend/pyproject.toml:/app/pyproject.toml
     env_file:
       - ./backend/.env
     environment:
       - DATABASE_URL=sqlite+aiosqlite:///./ma_prospecting.db
-      - PYTHONPATH=/app
 
   frontend:
     build: ./frontend
@@ -23,8 +23,14 @@ services:
       - ./frontend/hooks:/app/hooks
       - ./frontend/lib:/app/lib
       - ./frontend/public:/app/public
-      - /app/node_modules
+      - ./frontend/next.config.ts:/app/next.config.ts
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/package.json:/app/package.json
+      - fe_node_modules:/app/node_modules
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8010
     depends_on:
       - backend
+
+volumes:
+  fe_node_modules:
