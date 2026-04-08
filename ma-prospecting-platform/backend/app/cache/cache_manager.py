@@ -15,6 +15,7 @@ async def cache_get(key: str) -> dict | list | None:
     row = await cursor.fetchone()
 
     if row is None:
+        logger.debug("[CACHE] MISS  | key=%s", key)
         return None
 
     created_at = datetime.fromisoformat(row["created_at"])
@@ -23,8 +24,11 @@ async def cache_get(key: str) -> dict | list | None:
     if elapsed > row["ttl_seconds"]:
         await db.execute("DELETE FROM cache_entries WHERE key = ?", (key,))
         await db.commit()
+        logger.info("[CACHE] EXPIRED| key=%s | age=%.0fs > ttl=%ds", key, elapsed, row["ttl_seconds"])
         return None
 
+    remaining = row["ttl_seconds"] - elapsed
+    logger.info("[CACHE] HIT   | key=%s | age=%.0fs | ttl_remaining=%.0fs", key, elapsed, remaining)
     return json.loads(row["value"])
 
 
@@ -40,7 +44,8 @@ async def cache_set(key: str, value: dict | list, ttl_seconds: int | None = None
         (key, json.dumps(value), now, ttl),
     )
     await db.commit()
-    logger.debug(f"Cached key: {key} (TTL: {ttl}s)")
+    size_bytes = len(json.dumps(value))
+    logger.info("[CACHE] SET   | key=%s | ttl=%ds | size=%.1fkB", key, ttl, size_bytes / 1024)
 
 
 async def cache_invalidate(key: str) -> None:

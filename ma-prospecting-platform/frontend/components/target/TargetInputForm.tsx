@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { UserFilters, ScoringWeights, BuyerPersona } from "@/lib/types";
+import { UserFilters, BuyerPersona } from "@/lib/types";
 import { createPipelineRun } from "@/lib/api";
 import { DEFAULT_FILTERS, DEFAULT_WEIGHTS, PERSONA_LABELS } from "@/lib/constants";
 import { useRecentRuns } from "@/hooks/useRecentRuns";
@@ -8,6 +8,13 @@ import { useRecentRuns } from "@/hooks/useRecentRuns";
 interface Props {
   onRunStarted: (runId: string) => void;
 }
+
+const PERSONA_OPTIONS: Array<{ value: BuyerPersona; disabled?: false } | { value: "private"; disabled: true }> = [
+  { value: "strategic" },
+  { value: "private_equity" },
+  { value: "conglomerate" },
+  { value: "private", disabled: true },
+];
 
 export function TargetInputForm({ onRunStarted }: Props) {
   const [url, setUrl] = useState("");
@@ -69,18 +76,25 @@ export function TargetInputForm({ onRunStarted }: Props) {
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Buyer Persona</label>
         <div className="flex gap-3">
-          {(["strategic", "private_equity", "conglomerate"] as BuyerPersona[]).map((p) => (
+          {PERSONA_OPTIONS.map((option) => (
             <button
-              key={p}
+              key={option.value}
               type="button"
-              onClick={() => togglePersona(p)}
+              onClick={() => {
+                if (!option.disabled) {
+                  togglePersona(option.value);
+                }
+              }}
+              disabled={option.disabled}
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                filters.personas.includes(p)
+                option.disabled
+                  ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
+                  : filters.personas.includes(option.value)
                   ? "bg-stone-800 text-white border-stone-800"
                   : "bg-white text-gray-600 border-gray-300 hover:border-gray-400"
               }`}
             >
-              {PERSONA_LABELS[p]}
+              {option.disabled ? "Private (Coming soon)" : PERSONA_LABELS[option.value]}
             </button>
           ))}
         </div>

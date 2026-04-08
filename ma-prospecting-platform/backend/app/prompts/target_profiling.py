@@ -1,5 +1,3 @@
-import json
-
 PROFILE_SYSTEM_PROMPT = """You are a senior M&A analyst specialising in cross-border transactions.
 Your job is to analyse a company's website content and produce a structured acquisition profile.
 Be factual. Only extract information that is clearly present or strongly inferable from the content.
@@ -7,8 +5,10 @@ If the source is thin, boilerplate-only, or unclear, use empty strings for unkno
 Respond ONLY with valid JSON — no preamble, no explanation."""
 
 
-def build_profile_prompt(scraped_text: str) -> str:
+def build_profile_prompt(scraped_text: str, url: str = "") -> str:
     return f"""Analyse the following website content and produce a structured company profile.
+
+Website URL: {url or "unknown"}
 
 Website content:
 ---
@@ -37,4 +37,4 @@ Rules:
 - Do not fabricate revenue or employee numbers — only estimate if directly stated or clearly inferable
 - sector_l3 should be the most specific classification possible
 - strategic_notes is the most important field — be specific about the acquirable value
-- If multiple sections are provided (e.g. direct fetch vs Exa), prefer the section with clear product/company prose"""
+- If multiple sections are provided (e.g. direct fetch vs web-search enrichment), prefer the section with clear product/company prose"""

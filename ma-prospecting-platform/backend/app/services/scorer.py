@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 from app.clients.anthropic_client import call_claude
 from app.models.prospect import Prospect
@@ -18,9 +19,15 @@ async def score_all_prospects(
     weights: ScoringWeights,
 ) -> list[ScoredProspect]:
     """Fan out scoring across all prospects."""
+    logger.info(
+        "[SCORER] Starting | prospects=%d | weights=%s",
+        len(prospects),
+        {k: v for k, v in weights.model_dump().items()},
+    )
     target_dict = target_profile.model_dump(exclude={"raw_scraped_text"})
     weights_dict = weights.model_dump()
 
+    t0 = time.monotonic()
     tasks = [
         _score_single(prospect, signals_map.get(prospect.id, []), target_dict, weights_dict)
         for prospect in prospects
@@ -31,7 +38,7 @@ async def score_all_prospects(
     scored: list[ScoredProspect] = []
     for prospect, result in zip(prospects, results):
         if isinstance(result, Exception):
-            logger.error(f"Scoring failed for {prospect.company_name}: {result}")
+            logger.error("[SCORER] FAILED for %-35s | error=%s", prospect.company_name, result)
             # Assign zero score rather than dropping the prospect
             scored.append(ScoredProspect(
                 prospect=prospect,
@@ -52,6 +59,15 @@ async def score_all_prospects(
     for i, sp in enumerate(scored):
         sp.rank = i + 1
 
+    elapsed = time.monotonic() - t0
+    logger.info("[SCORER] Done in %5.1fs | ranked %d prospects", elapsed, len(scored))
+    for sp in scored[:5]:  # Log top-5 for quick visibility
+        logger.info(
+            "[SCORER]   #%-2d %-35s | score=%4.1f | signals=%d | persona=%s",
+            sp.rank, sp.prospect.company_name, sp.weighted_total,
+            len(sp.signals), sp.prospect.persona,
+        )
+
     return scored
 
 
@@ -71,17 +87,25 @@ async def _score_single(
         weights=weights_dict,
     )
 
+    logger.info("[SCORER] Scoring %-35s | signals=%d", prospect.company_name, len(signals))
     result = await call_claude(
         prompt=prompt,
         system_prompt=SCORING_SYSTEM_PROMPT,
         max_tokens=2048,
         temperature=0.0,
         response_json=True,
+        label=f"scoring/{prospect.company_name[:30]}",
     )
 
     dimension_scores = [DimensionScore(**d) for d in result.get("dimension_scores", [])]
     weighted_total = float(result.get("weighted_total", 0.0))
     match_reasoning = result.get("match_reasoning", "")
+
+    logger.info(
+        "[SCORER] %-35s | weighted_total=%4.1f | dims=%s",
+        prospect.company_name, weighted_total,
+        " | ".join(f"{d.dimension[:10]}={d.score:.1f}" for d in dimension_scores),
+    )
 
     # Pick top signal (highest strength, most recent)
     top_signal = _pick_top_signal(signals)

@@ -4,8 +4,6 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # API Keys
     anthropic_api_key: str
-    fmp_api_key: str
-    exa_api_key: str
 
     # Claude Config
     claude_model: str = "claude-sonnet-4-20250514"
@@ -20,15 +18,12 @@ class Settings(BaseSettings):
     # Prospect funnel: generate more candidates than UI num_results, trim after scoring
     prospect_overfetch_multiplier: float = 2.0
     prospect_max_internal: int = 60
+    prospect_track_timeout_seconds: int = 120
     # Signal pre-filter: "strict" = regex gate before Claude; "off" = always run extraction
     signal_prefilter_mode: str = "strict"
-    # Optional Exa web snippets as extra signal context (press / IR mentions)
-    exa_signal_enrichment: bool = False
-    exa_signal_enrichment_max_results: int = 5
-    # Step 1: when direct scrape is low-quality (SPA), enrich with Exa /contents for same URL
-    exa_profile_fallback: bool = True
-    exa_profile_max_characters: int = 25000
-    # Optional: render JS in Chromium when scrape + Exa still yield thin text (pip install playwright; playwright install chromium)
+    # Optional live web-search enrichment for press / IR mentions
+    claude_web_enrichment: bool = False
+    # Optional: render JS in Chromium when scrape plus web search still yield thin text
     playwright_enabled: bool = False
 
     # Cache
@@ -39,6 +34,9 @@ class Settings(BaseSettings):
     port: int = 8000
     cors_origins: str = "http://localhost:3000"
 
+    # Logging
+    log_level: str = "INFO"
+
     # Database
     database_url: str = "sqlite+aiosqlite:///./ma_prospecting.db"
 
@@ -46,7 +44,7 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",")]
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
 settings = Settings()

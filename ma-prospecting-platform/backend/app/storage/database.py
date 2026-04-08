@@ -1,5 +1,4 @@
 import aiosqlite
-import json
 import os
 
 DB_PATH = os.getenv("DB_PATH", "ma_prospecting.db")
@@ -13,6 +12,14 @@ async def get_db() -> aiosqlite.Connection:
         _db = await aiosqlite.connect(DB_PATH)
         _db.row_factory = aiosqlite.Row
     return _db
+
+
+async def close_db():
+    """Close the global database connection."""
+    global _db
+    if _db is not None:
+        await _db.close()
+        _db = None
 
 
 async def init_db():
@@ -50,10 +57,3 @@ async def init_db():
         );
     """)
     await db.commit()
-
-
-async def close_db():
-    global _db
-    if _db is not None:
-        await _db.close()
-        _db = None

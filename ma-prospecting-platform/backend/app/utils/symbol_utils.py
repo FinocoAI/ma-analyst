@@ -1,6 +1,4 @@
-"""Helpers for matching Indian listed tickers to FMP symbols."""
-
-import re
+"""Helpers for matching Indian listed tickers to candidate symbols."""
 
 
 def normalize_symbol(raw: str | None) -> str:
@@ -38,8 +36,8 @@ def match_known_symbol(ticker: str | None, known_symbols: frozenset[str]) -> str
     return None
 
 
-def fmp_row_to_candidate(row: dict) -> dict:
-    """Normalize FMP search-name row for prompts and deduplication."""
+def candidate_to_dict(row: dict) -> dict:
+    """Normalize a candidate row for prompts and deduplication."""
     name = row.get("name") or row.get("companyName") or ""
     sym = row.get("symbol") or row.get("symbolName") or ""
     return {
@@ -47,14 +45,14 @@ def fmp_row_to_candidate(row: dict) -> dict:
         "symbol": sym,
         "exchange": row.get("stockExchange") or row.get("exchangeShortName") or "",
         "currency": row.get("currency"),
-        "source": "fmp",
+        "source": row.get("source") or "claude_search",
     }
 
 
-def collect_symbols_from_fmp_rows(rows: list[dict]) -> set[str]:
+def collect_symbols_from_candidates(rows: list[dict]) -> set[str]:
     out: set[str] = set()
     for row in rows:
-        c = fmp_row_to_candidate(row)
+        c = candidate_to_dict(row)
         sym = c.get("symbol")
         if sym:
             out.add(str(sym).strip().upper())

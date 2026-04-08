@@ -14,7 +14,7 @@ ScrapeTier = Literal["high", "degraded_curl", "low"]
 
 @dataclass
 class ScrapeResult:
-    """Result of direct HTTP scraping (before Exa / Playwright fallbacks in target_profiler)."""
+    """Result of direct HTTP scraping before web-search or Playwright fallback in target_profiler."""
 
     text: str
     tier: ScrapeTier
@@ -105,7 +105,6 @@ async def fetch_html_best_effort(url: str, timeout: int) -> tuple[str, tuple[str
     methods: list[str] = ["httpx"] if not curl_from_403 else ["httpx", "curl_cffi_403"]
 
     if curl_from_403:
-        tier: ScrapeTier = "degraded_curl" if is_usable_text(text_h) else "low"
         logger.info(
             "Scrape %s: used curl after 403, quality_usable=%s chars=%s",
             url,

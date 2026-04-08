@@ -15,7 +15,7 @@ dependencies = [
     "aiosqlite>=0.20.0",
     "python-dotenv>=1.0.0",
     "sse-starlette>=2.1.0",
-    "exa-py>=1.0.0",
+    "pypdf>=5.4.0",
 ]
 
 [project.optional-dependencies]

@@ -16,7 +16,7 @@ class TargetProfile(BaseModel):
     india_connection: str | None = None
     strategic_notes: str = ""
     raw_scraped_text: str = ""
-    # high | curl_boost | exa_enriched | playwright | low — how Step 1 obtained readable text
+    # high | curl_boost | claude_enriched | playwright | low - how Step 1 obtained readable text
     scrape_content_quality: str = "high"
 
 
