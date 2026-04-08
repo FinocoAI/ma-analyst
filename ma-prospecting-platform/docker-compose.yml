@@ -3,8 +3,8 @@ version: "3.9"
 services:
   backend:
     build: ./backend
-    ports:
-      - "8010:8000"
+    expose:
+      - "8000"
     volumes:
       - ./backend/app:/app/app
     env_file:
@@ -14,8 +14,8 @@ services:
 
   frontend:
     build: ./frontend
-    ports:
-      - "3010:3000"
+    expose:
+      - "3000"
     volumes:
       - ./frontend/app:/app/app
       - ./frontend/components:/app/components
@@ -24,7 +24,7 @@ services:
       - ./frontend/public:/app/public
       - fe_node_modules:/app/node_modules
     environment:
-      - NEXT_PUBLIC_API_URL=http://0.0.0.0:8010
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:8000}
     depends_on:
       - backend
 
