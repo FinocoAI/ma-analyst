@@ -15,6 +15,10 @@ from app.storage.repositories import create_pipeline_run, get_pipeline_run, upda
 
 logger = logging.getLogger(__name__)
 
+PROSPECTING_TIMEOUT_SECONDS = 240
+SIGNAL_EXTRACTION_TIMEOUT_SECONDS = 300
+SCORING_TIMEOUT_SECONDS = 180
+
 
 async def start_pipeline(request: PipelineRunRequest) -> str:
     """Create a new pipeline run and kick off Step 1 in the background."""
@@ -119,7 +123,7 @@ async def _run_steps_2_to_4(
         )
         prospects, known_listed_symbols = await asyncio.wait_for(
             generate_prospects(target_profile, filters, internal_max=internal_max),
-            timeout=settings.prospecting_timeout_seconds,
+            timeout=PROSPECTING_TIMEOUT_SECONDS,
         )
         timings["prospecting"] = round(time.monotonic() - t0, 2)
         await update_pipeline_run(run_id, prospects=[p.model_dump() for p in prospects], step_timings=timings)
@@ -141,7 +145,7 @@ async def _run_steps_2_to_4(
                 custom_keywords=filters.custom_signal_keywords,
                 known_listed_symbols=known_listed_symbols,
             ),
-            timeout=settings.signal_extraction_timeout_seconds,
+            timeout=SIGNAL_EXTRACTION_TIMEOUT_SECONDS,
         )
         timings["signal_extraction"] = round(time.monotonic() - t0, 2)
         total_signals = sum(len(v) for v in signals_map.values())
@@ -165,7 +169,7 @@ async def _run_steps_2_to_4(
                 target_profile=target_profile,
                 weights=weights,
             ),
-            timeout=settings.scoring_timeout_seconds,
+            timeout=SCORING_TIMEOUT_SECONDS,
         )
         timings["scoring"] = round(time.monotonic() - t0, 2)
 
@@ -245,7 +249,7 @@ async def _rescore_task(run_id, prospects, signals_map, target_profile, weights)
     try:
         scored = await asyncio.wait_for(
             score_all_prospects(prospects, signals_map, target_profile, weights),
-            timeout=settings.scoring_timeout_seconds,
+            timeout=SCORING_TIMEOUT_SECONDS,
         )
         elapsed = time.monotonic() - t0
         await update_pipeline_run(

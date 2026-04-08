@@ -19,9 +19,6 @@ class Settings(BaseSettings):
     prospect_overfetch_multiplier: float = 2.0
     prospect_max_internal: int = 60
     prospect_track_timeout_seconds: int = 120
-    prospecting_timeout_seconds: int = 240
-    signal_extraction_timeout_seconds: int = 300
-    scoring_timeout_seconds: int = 180
     # Signal pre-filter: "strict" = regex gate before Claude; "off" = always run extraction
     signal_prefilter_mode: str = "strict"
     # Optional live web-search enrichment for press / IR mentions
