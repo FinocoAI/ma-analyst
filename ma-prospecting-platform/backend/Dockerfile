@@ -22,6 +22,6 @@ COPY . .
 # Final installation of the current project into the venv
 RUN uv sync
 
-EXPOSE 8010
+EXPOSE 8000
 # Use uv run to execute uvicorn within the managed virtual environment
 CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -8,5 +8,5 @@ ENV PATH /app/node_modules/.bin:$PATH
 
 COPY . .
 
-EXPOSE 3010
+EXPOSE 3000
 CMD ["npm", "run", "dev"]
