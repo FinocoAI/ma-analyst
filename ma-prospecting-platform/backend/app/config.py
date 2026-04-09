@@ -6,7 +6,8 @@ class Settings(BaseSettings):
     anthropic_api_key: str
 
     # Claude Config
-    claude_model: str = "claude-haiku-4-5-20251001"
+    claude_model: str = "claude-sonnet-4-6"           # analytical: profiling, signals, scoring
+    claude_search_model: str = "claude-haiku-4-5-20251001"  # discovery: candidate search, ticker resolution, enrichment
     claude_max_retries: int = 3
     claude_timeout_seconds: int = 240
 

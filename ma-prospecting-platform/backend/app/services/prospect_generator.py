@@ -44,32 +44,35 @@ async def generate_prospects(
     persona_strs = [p.value for p in filters.personas]
 
     t0 = time.monotonic()
-    logger.info("[PROSPECTS] Launching listed and private tracks in parallel")
-    listed_task = asyncio.wait_for(
-        _find_listed_prospects(target_profile, filters, persona_strs, cap),
-        timeout=settings.prospect_track_timeout_seconds,
-    )
-    private_task = asyncio.wait_for(
-        _find_private_prospects(target_profile, filters, persona_strs, cap),
-        timeout=settings.prospect_track_timeout_seconds,
-    )
-
-    listed_result, private = await asyncio.gather(listed_task, private_task, return_exceptions=True)
-
     known_symbols: frozenset[str] = frozenset()
     listed: list[Prospect] = []
+    private: list[Prospect] = []
 
-    if isinstance(listed_result, Exception):
-        logger.error("[PROSPECTS] Listed track FAILED: %s", listed_result)
-    elif isinstance(listed_result, tuple):
-        listed, known_symbols = listed_result
-        logger.info("[PROSPECTS] Listed track done | listed=%d | known_symbols=%d", len(listed), len(known_symbols))
+    # Run tracks sequentially to avoid concurrent web-search load on the Anthropic API.
+    # Listed first (higher signal quality), private second.
+    logger.info("[PROSPECTS] Running listed track")
+    try:
+        listed_result = await asyncio.wait_for(
+            _find_listed_prospects(target_profile, filters, persona_strs, cap),
+            timeout=settings.prospect_track_timeout_seconds,
+        )
+        if isinstance(listed_result, tuple):
+            listed, known_symbols = listed_result
+            logger.info("[PROSPECTS] Listed track done | listed=%d | known_symbols=%d", len(listed), len(known_symbols))
+    except Exception as exc:
+        logger.error("[PROSPECTS] Listed track FAILED: %s", exc)
 
-    if isinstance(private, Exception):
-        logger.error("[PROSPECTS] Private track FAILED: %s", private)
-        private = []
-    else:
-        logger.info("[PROSPECTS] Private track done | private=%d", len(private))
+    logger.info("[PROSPECTS] Running private track")
+    try:
+        private_result = await asyncio.wait_for(
+            _find_private_prospects(target_profile, filters, persona_strs, cap),
+            timeout=settings.prospect_track_timeout_seconds,
+        )
+        if isinstance(private_result, list):
+            private = private_result
+            logger.info("[PROSPECTS] Private track done | private=%d", len(private))
+    except Exception as exc:
+        logger.error("[PROSPECTS] Private track FAILED: %s", exc)
 
     all_prospects = _merge_and_deduplicate(listed, private)
     before_cap = len(all_prospects)
@@ -172,7 +175,7 @@ async def _find_private_prospects(
     result = await call_claude(
         prompt=prompt,
         system_prompt=PROSPECT_SYSTEM_PROMPT,
-        max_tokens=1800,
+        max_tokens=4096,
         temperature=0.3,
         response_json=True,
         label="prospect_gen/private",

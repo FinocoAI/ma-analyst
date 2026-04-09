@@ -62,14 +62,16 @@ async def extract_all_signals(
         settings.max_concurrent_claude_calls,
     )
 
-    semaphore = asyncio.Semaphore(settings.max_concurrent_claude_calls)
+    # Signal gather calls each make 10-14 web searches — cap concurrency at 3
+    # to avoid hammering the Anthropic API and triggering 529 overload errors
+    signal_semaphore = asyncio.Semaphore(3)
     target_dict = target_profile.model_dump(exclude={"raw_scraped_text"})
     ph = profile_hash(str(target_dict))
 
     t0 = time.monotonic()
     tasks = [
-        _extract_for_prospect(prospect, target_dict, ph, semaphore)
-        for prospect in top_prospects
+        _extract_for_prospect(prospect, target_dict, ph, signal_semaphore, slot_index=i % 3)
+        for i, prospect in enumerate(top_prospects)
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -102,8 +104,13 @@ async def _extract_for_prospect(
     target_dict: dict,
     ph: str,
     semaphore: asyncio.Semaphore,
+    slot_index: int = 0,
 ) -> list[Signal]:
     async with semaphore:
+        # Small stagger so concurrent slots don't all fire web searches simultaneously
+        if slot_index > 0:
+            await asyncio.sleep(slot_index * 3)
+
         cache_key = signal_key(
             prospect.ticker or prospect.company_name.lower().replace(" ", "_"),
             "gather_v2",
@@ -131,12 +138,22 @@ async def _extract_for_prospect(
             target_dict=target_dict,
         )
 
+        # raw is None/empty list when the call failed (529, timeout, parse error)
+        # Only cache genuine "no signals found" results, not API failures
+        if raw is None:
+            logger.warning(
+                "[SIGNALS] %-35s | gather call failed — not caching, will retry next run",
+                prospect.company_name,
+            )
+            return []
+
         signals = _hydrate_signals(raw, prospect.id)
 
+        # Only write to cache if the call actually completed (even if 0 signals — that's valid)
         await cache_set(
             cache_key,
             [s.model_dump() for s in signals],
-            ttl_seconds=86400 * 7,  # 7-day cache for gathered signals
+            ttl_seconds=86400 * 7,  # 7-day cache for genuine results
         )
         logger.info(
             "[SIGNALS] %-35s | %d signals extracted | high=%d medium=%d low=%d",
