@@ -91,7 +91,7 @@ function ProspectingContent() {
     if (runId && pipeline.runId !== runId) {
       pipeline.resumeRun(runId);
     }
-  }, [searchParams]);
+  }, [searchParams, pipeline.runId, pipeline.resumeRun]);
 
   
   // We keep the results on screen if we already had them at least once
@@ -113,7 +113,7 @@ function ProspectingContent() {
   const isRescoring = pipeline.status === "scoring";
 
   return (
-    <div className="flex h-screen min-h-0">
+    <div className="flex h-screen min-h-0" key={pipeline.runId || 'new'}>
       {/* Center panel */}
       <div className="flex-1 flex flex-col overflow-y-auto min-h-0 bg-white text-gray-900">
         <div className="p-6 border-b border-gray-200 bg-white">

@@ -20,7 +20,7 @@ Also specifically look for mentions of: {', '.join(custom_keywords)}
 
     if content_kind == "web_press":
         doc_label = "WEB / PRESS / IR SNIPPETS (not an earnings call — may be incomplete)"
-        source_line = 'Use "source_document": "Web or press/IR (see URL in text if present)" and copy quotes verbatim from the snippets below.'
+        source_line = 'Use "source_document": "Web or press/IR" and "source_url": "the specific URL for this snippet if present in the text". Copy quotes verbatim.'
     else:
         doc_label = "EARNINGS CALL TRANSCRIPT"
         source_line = f'Use "source_document": "Q{quarter} Earnings Call Transcript" when the quote is from the transcript below.'
@@ -35,6 +35,7 @@ TARGET COMPANY CONTEXT (we are looking for signals that {company_name} might wan
 - Key technologies: {', '.join(target_profile.get('key_technologies', []))}
 - Geography: {', '.join(target_profile.get('geographic_footprint', []))}
 - What they do: {target_profile.get('description', '')}
+- CUSTOM GUIDANCE (Follow strictly if provided): {target_profile.get('custom_guidance', 'None provided.')}
 
 {doc_label}:
 ---
@@ -59,6 +60,7 @@ For each signal found, return an entry in this JSON array:
     "strength": "high" | "medium" | "low",
     "source_document": "e.g. Q3 FY26 Earnings Call OR Web/IR press snippet",
     "source_quarter": "string matching the period label above, or N/A for web-only snippets",
+    "source_url": "URL if explicitly mentioned in the snippet label, else null",
     "reasoning": "1-2 sentences explaining why this signal is relevant to acquiring the target company"
   }}
 ]

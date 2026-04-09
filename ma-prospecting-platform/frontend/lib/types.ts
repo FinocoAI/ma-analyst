@@ -39,6 +39,7 @@ export interface TargetProfile {
   years_in_operation: number | null;
   india_connection: string | null;
   strategic_notes: string;
+  custom_guidance: string;
   /** How the backend obtained readable text for profiling */
   scrape_content_quality?: ScrapeContentQuality;
 }

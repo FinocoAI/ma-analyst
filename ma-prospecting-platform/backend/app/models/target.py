@@ -15,6 +15,7 @@ class TargetProfile(BaseModel):
     years_in_operation: int | None = None
     india_connection: str | None = None
     strategic_notes: str = ""
+    custom_guidance: str = ""
     raw_scraped_text: str = ""
     # high | curl_boost | claude_enriched | playwright | low - how Step 1 obtained readable text
     scrape_content_quality: str = "high"

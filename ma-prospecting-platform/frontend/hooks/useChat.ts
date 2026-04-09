@@ -3,6 +3,17 @@ import { useState, useCallback, useEffect } from "react";
 import { ChatMessage } from "@/lib/types";
 import { streamChatMessage, getChatHistory } from "@/lib/api";
 
+const generateUUID = () => {
+  if (typeof window !== "undefined" && window.crypto && window.crypto.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 export function useChat(runId: string | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +40,7 @@ export function useChat(runId: string | null) {
     if (!runId || !content.trim()) return;
 
     const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       run_id: runId,
       role: "user",
       content,
@@ -38,7 +49,7 @@ export function useChat(runId: string | null) {
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
 
-    const assistantMsgId = crypto.randomUUID();
+    const assistantMsgId = generateUUID();
     const assistantMsg: ChatMessage = {
       id: assistantMsgId,
       run_id: runId,

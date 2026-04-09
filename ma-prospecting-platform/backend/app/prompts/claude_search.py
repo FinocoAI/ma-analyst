@@ -159,5 +159,5 @@ Search the last 2 years for:
 - management commentary about inorganic growth or M&A strategy
 - investor relations or earnings-call commentary about acquisitions
 
-Return relevant excerpts as plain text with source URLs.
+Return relevant excerpts as plain text. You MUST include a source URL for EVERY excerpt provided.
 If nothing relevant is found, return exactly: NO_RESULTS"""

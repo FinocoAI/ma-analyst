@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { useRecentRuns } from "@/hooks/useRecentRuns";
 
 interface Props {
@@ -9,8 +10,18 @@ interface Props {
 }
 
 export function Sidebar({ collapsed, onToggle }: Props) {
+  return (
+    <Suspense fallback={<aside className={`bg-stone-900 ${collapsed ? "w-16" : "w-56"}`} />}>
+      <SidebarContent collapsed={collapsed} onToggle={onToggle} />
+    </Suspense>
+  );
+}
+
+function SidebarContent({ collapsed, onToggle }: Props) {
   const { runs } = useRecentRuns();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeRunId = searchParams?.get("runId");
   const onProspecting = pathname?.startsWith("/prospecting") ?? false;
 
   return (
@@ -41,13 +52,17 @@ export function Sidebar({ collapsed, onToggle }: Props) {
           </div>
 
           <nav className="flex flex-col gap-1">
-            <button
-              type="button"
-              className="flex items-center gap-2 px-3 py-2 rounded-md bg-stone-700 text-white text-sm font-medium text-left"
+            <Link
+              href="/prospecting"
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-left transition-colors ${
+                onProspecting && !activeRunId
+                  ? "bg-stone-700 text-white"
+                  : "text-stone-400 hover:text-white hover:bg-stone-800"
+              }`}
             >
-              <span className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
+              <span className={`w-2 h-2 rounded-full shrink-0 ${onProspecting ? "bg-green-400" : "bg-stone-600"}`} />
               Prospecting
-            </button>
+            </Link>
 
             <button
               type="button"
@@ -71,7 +86,11 @@ export function Sidebar({ collapsed, onToggle }: Props) {
                 <Link
                   key={r.runId}
                   href={`/prospecting?runId=${r.runId}`}
-                  className="px-3 py-2 text-xs text-stone-300 hover:text-white hover:bg-stone-800 rounded-md truncate block"
+                  className={`px-3 py-2 text-xs rounded-md truncate block transition-colors ${
+                    activeRunId === r.runId
+                      ? "bg-stone-800 text-white font-medium"
+                      : "text-stone-300 hover:text-white hover:bg-stone-800"
+                  }`}
                   title={r.url}
                 >
                   {r.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}

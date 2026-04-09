@@ -2,6 +2,7 @@ import json
 
 SCORING_SYSTEM_PROMPT = """You are an M&A matching engine. You score potential acquirers against a target company.
 Be analytical and precise. Back every score with specific evidence from the signals provided.
+ALWAYS cite specific sources (e.g., "Q3 FY25 Earnings Call") in your justifications and summary when using signals.
 Respond ONLY with valid JSON — no preamble, no explanation."""
 
 
@@ -15,6 +16,9 @@ def build_scoring_prompt(
 
 TARGET COMPANY:
 {json.dumps(target_profile, indent=2)}
+
+CUSTOM USER GUIDANCE (Adjust scores/reasoning to adhere to these preference):
+{target_profile.get('custom_guidance') or 'None provided.'}
 
 POTENTIAL BUYER:
 {json.dumps(buyer_profile, indent=2)}
@@ -83,7 +87,7 @@ Respond in this exact JSON format:
     }}
   ],
   "weighted_total": calculated float 0-100 (sum of score * weight/100 for each dimension, scaled to 100),
-  "match_reasoning": "2-3 sentence summary of why this company is or isn't a strong acquirer for the target"
+  "match_reasoning": "2-3 sentence summary of why this company is or isn't a strong acquirer. CITING sources from earnings calls or web search when signals are found."
 }}
 
 Scoring guidance per dimension:

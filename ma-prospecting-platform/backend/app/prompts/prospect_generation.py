@@ -26,10 +26,12 @@ TARGET COMPANY PROFILE:
 CANDIDATE COMPANIES (from live web search):
 {json.dumps(company_list, indent=2)}
 
-USER FILTERS:
 - Buyer personas to include: {personas_str}
 - Geography: {geography}
 - {revenue_constraint}
+
+CUSTOM USER GUIDANCE (Follow these instructions strictly):
+{target_profile.get('custom_guidance') or 'None provided.'}
 
 For each company that is a plausible buyer, produce an entry in this JSON array format:
 [
@@ -74,9 +76,11 @@ TARGET COMPANY PROFILE:
 WEB SEARCH RESULTS (potential private companies found):
 {json.dumps(candidate_results, indent=2)}
 
-USER FILTERS:
 - Buyer personas to include: {personas_str}
 - Geography: {geography}
+
+CUSTOM USER GUIDANCE (Follow these instructions strictly):
+{target_profile.get('custom_guidance') or 'None provided.'}
 
 For each private company that is a plausible buyer, produce an entry in this JSON array:
 [

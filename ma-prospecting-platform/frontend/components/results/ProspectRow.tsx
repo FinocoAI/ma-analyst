@@ -43,7 +43,12 @@ export function ProspectRow({ sp }: { sp: ScoredProspect }) {
           ) : "—"}
         </td>
         <td className="px-4 py-3 text-xs text-gray-400">
-          {sp.top_signal?.source_quarter || "—"}
+          {sp.top_signal ? (
+            <div className="flex flex-col">
+              <span>{sp.top_signal.source_quarter}</span>
+              <span className="opacity-70 truncate max-w-[80px]">{sp.top_signal.source_document}</span>
+            </div>
+          ) : "—"}
         </td>
         <td className="px-4 py-3 text-gray-400">
           <span className="text-xs">{expanded ? "▲" : "▼"}</span>

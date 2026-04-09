@@ -136,6 +136,7 @@ async def _extract_for_prospect(
                 prospect_id=prospect.id,
                 custom_keywords=custom_keywords or None,
                 content_kind="earnings_call",
+                source_url=transcript.get("source_url"),
             )
             logger.info("[SIGNALS] %-35s | %s | Claude returned %d signals", prospect.company_name, quarter, len(signals))
 
@@ -208,6 +209,7 @@ async def _extract_from_transcript(
     prospect_id: str,
     custom_keywords: list[str] | None,
     content_kind: str = "earnings_call",
+    source_url: str | None = None,
 ) -> list[Signal]:
     chunks = chunk_text(transcript_text, max_chars=40000)
     all_raw_signals = []
@@ -244,7 +246,7 @@ async def _extract_from_transcript(
             strength=SignalStrength(s.get("strength", "low")),
             source_document=s.get("source_document", f"{quarter} Earnings Call"),
             source_quarter=s.get("source_quarter", quarter),
-            source_url=None,
+            source_url=s.get("source_url") or source_url,
             reasoning=s.get("reasoning", ""),
         )
         for s in all_raw_signals

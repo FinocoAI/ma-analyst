@@ -56,7 +56,7 @@ export function usePipeline() {
     return () => clearInterval(interval);
   }, [state.runId, state.status, poll]);
 
-  const startRun = (runId: string) => {
+  const startRun = useCallback((runId: string) => {
     setState({
       runId,
       status: "profiling",
@@ -66,9 +66,9 @@ export function usePipeline() {
       scoredProspects: [],
       error: null,
     });
-  };
+  }, []);
 
-  const confirmProfile = async (profile: TargetProfile) => {
+  const confirmProfile = useCallback(async (profile: TargetProfile) => {
     if (!state.runId) return;
     await apiConfirmProfile(state.runId, profile);
     setState((prev) => ({
@@ -79,9 +79,9 @@ export function usePipeline() {
       error: null,
     }));
     await poll(state.runId);
-  };
+  }, [state.runId, poll]);
 
-  const triggerRescore = async (weights: ScoringWeights) => {
+  const triggerRescore = useCallback(async (weights: ScoringWeights) => {
     if (!state.runId) return;
     setState((prev) => ({ ...prev, status: "scoring" }));
     try {
@@ -89,9 +89,9 @@ export function usePipeline() {
     } catch (e: any) {
       setState((prev) => ({ ...prev, error: e.message }));
     }
-  };
+  }, [state.runId]);
 
-  const resumeRun = (runId: string) => {
+  const resumeRun = useCallback((runId: string) => {
     setState({
       runId,
       status: null,
@@ -101,7 +101,8 @@ export function usePipeline() {
       scoredProspects: [],
       error: null,
     });
-  };
+    poll(runId);
+  }, [poll]);
 
   return { ...state, startRun, confirmProfile, triggerRescore, resumeRun };
 }

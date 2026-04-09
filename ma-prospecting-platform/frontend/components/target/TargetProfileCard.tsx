@@ -84,9 +84,24 @@ export function TargetProfileCard({ profile, onConfirm }: Props) {
       {edited.strategic_notes && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
           <p className="text-xs font-medium text-amber-700 mb-1">Strategic Notes</p>
-          <p className="text-sm text-amber-900">{edited.strategic_notes}</p>
+          <p className="text-sm text-amber-900 leading-relaxed">{edited.strategic_notes}</p>
         </div>
       )}
+      
+      <div className="space-y-2">
+        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          Custom Guidance / Additional Instructions
+        </label>
+        <textarea
+          value={edited.custom_guidance}
+          onChange={(e) => update("custom_guidance", e.target.value)}
+          placeholder="e.g. 'Focus on buyers with strong balance sheets' or 'Only include conglomerates with a presence in South India'"
+          className="w-full min-h-[80px] text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg p-3 focus:ring-1 focus:ring-stone-500 focus:border-stone-500 outline-none transition-all placeholder:text-gray-400"
+        />
+        <p className="text-[10px] text-gray-400 italic">
+          These instructions guide the processing pipeline if provided.
+        </p>
+      </div>
 
       <button
         onClick={() => onConfirm(edited)}
