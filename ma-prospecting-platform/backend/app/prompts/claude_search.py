@@ -19,6 +19,11 @@ TICKER_RESOLUTION_SYSTEM_PROMPT = """You are a financial data assistant.
 Use the web_search tool to find the current NSE or BSE ticker for an Indian listed company.
 Verify the symbol from live search results and return only valid JSON."""
 
+TRANSCRIPT_DISCOVERY_SYSTEM_PROMPT = """You are a financial research analyst.
+Use the web_search tool to find recent public earnings call transcript sources for the named company.
+Prefer official investor relations pages, exchange filings, or direct transcript / PDF URLs.
+Return only valid JSON."""
+
 TRANSCRIPT_METADATA_SYSTEM_PROMPT = """You are a financial analyst.
 You will be given raw text scraped from a public web page or PDF.
 Identify whether the text contains an actual earnings call transcript for the named company.
@@ -118,6 +123,33 @@ Search for the current canonical NSE ticker for this company.
 If the company is only listed on BSE, return the BSE code instead.
 Return JSON only in this shape:
 {{"ticker": "SYMBOL"}} or {{"ticker": null}}"""
+
+
+def build_transcript_discovery_prompt(company_name: str, ticker: str, num_quarters: int) -> str:
+    search_budget = max(8, min(16, num_quarters * 3))
+    return f"""Company: {company_name} (Ticker: {ticker})
+
+Find up to {search_budget} public URLs that are likely to contain this company's earnings call transcripts
+for the most recent {num_quarters} quarters.
+
+Return JSON array only in this shape:
+[
+  {{
+    "url": "https://...",
+    "title": "short title",
+    "quarter": 1 or null,
+    "year": 2025 or null,
+    "date": "YYYY-MM-DD or empty string"
+  }}
+]
+
+Rules:
+- Use live web search, not memory
+- Prefer direct transcript pages or PDF transcript files
+- Official investor relations pages are best; transcript-host or exchange pages are acceptable if clearly relevant
+- Exclude unrelated companies and obvious duplicates
+- If you only find transcript listing pages, include them if they are likely to link to the actual transcripts
+- Return [] if nothing credible is found"""
 
 
 def build_transcript_metadata_prompt(

@@ -6,7 +6,7 @@ def transcript_key(ticker: str, quarter: str) -> str:
 
 
 def signal_key(ticker: str, quarter: str, target_profile_hash: str) -> str:
-    return f"signal:{ticker}:{quarter}:{target_profile_hash}"
+    return f"signal:v2:{ticker}:{quarter}:{target_profile_hash}"
 
 
 def profile_hash(profile_json: str) -> str:

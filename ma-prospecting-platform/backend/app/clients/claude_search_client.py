@@ -18,14 +18,17 @@ from app.prompts.claude_search import (
     PRIVATE_CANDIDATES_SYSTEM_PROMPT,
     PROFILE_ENRICHMENT_SYSTEM_PROMPT,
     TICKER_RESOLUTION_SYSTEM_PROMPT,
+    TRANSCRIPT_DISCOVERY_SYSTEM_PROMPT,
     TRANSCRIPT_METADATA_SYSTEM_PROMPT,
     build_listed_candidates_prompt,
     build_ma_press_prompt,
     build_private_candidates_prompt,
     build_profile_enrichment_prompt,
+    build_transcript_discovery_prompt,
     build_ticker_resolution_prompt,
     build_transcript_metadata_prompt,
 )
+from app.prompts.signal_extraction import SIGNAL_GATHER_SYSTEM_PROMPT, build_signal_gather_prompt
 from app.utils.symbol_utils import normalize_symbol
 
 logger = logging.getLogger(__name__)
@@ -71,6 +74,14 @@ def _safe_int(value) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _clean_http_url(value: str | None) -> str:
+    url = (value or "").strip().split("#", 1)[0]
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        return ""
+    return url
 
 
 def _normalize_listed_candidate(row: dict) -> dict | None:
@@ -273,38 +284,77 @@ async def resolve_ticker(company_name: str, ticker_hint: str | None) -> str | No
         return normalize_symbol(ticker_hint) or None
 
 
-async def _collect_transcript_documents(ticker: str) -> list[TranscriptDocument]:
-    base_urls = [
-        f"https://www.screener.in/company/{ticker}/consolidated/",
-        f"https://www.screener.in/company/{ticker}/",
-    ]
-    discovered_links: list[str] = []
+async def _discover_transcript_source_links(company_name: str, ticker: str, num_quarters: int) -> list[str]:
+    try:
+        result = await call_claude(
+            prompt=build_transcript_discovery_prompt(company_name, ticker, num_quarters),
+            system_prompt=TRANSCRIPT_DISCOVERY_SYSTEM_PROMPT,
+            max_tokens=1536,
+            temperature=0.0,
+            response_json=True,
+            label=f"claude_search/transcript_discovery/{ticker}",
+            tools=[_web_search_tool(max_uses=8)],
+            tool_choice=_force_web_search_choice(),
+        )
+    except Exception as exc:
+        logger.warning("[CLAUDE_SEARCH] transcript_discovery FAILED | ticker=%s | error=%s", ticker, exc)
+        return []
+
+    rows = result if isinstance(result, list) else []
+    links: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        url = _clean_http_url(row.get("url"))
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        links.append(url)
+    return links
+
+
+async def _collect_transcript_documents(company_name: str, ticker: str, num_quarters: int) -> list[TranscriptDocument]:
+    discovered_links = await _discover_transcript_source_links(company_name, ticker, num_quarters)
+    if not discovered_links:
+        return []
+
+    candidate_links: list[str] = []
     documents: list[TranscriptDocument] = []
-    for base_url in base_urls:
+    max_initial_links = max(8, min(16, num_quarters * 3))
+    for base_url in discovered_links[:max_initial_links]:
+        if base_url.lower().endswith(".pdf"):
+            candidate_links.append(base_url)
+            continue
         try:
             html, _methods = await fetch_html_best_effort(base_url, timeout=30)
         except Exception as exc:
             logger.debug("[CLAUDE_SEARCH] transcript_source_fetch failed | url=%s | error=%s", base_url, exc)
+            try:
+                text = await _fetch_document_text(base_url)
+            except Exception as inner_exc:
+                logger.debug("[CLAUDE_SEARCH] transcript_doc_fetch failed | url=%s | error=%s", base_url, inner_exc)
+                continue
+            if text.strip() and _contains_transcript_keywords(text) and len(text) > 1500:
+                documents.append(TranscriptDocument(url=base_url, text=text[:50000], source="html"))
             continue
 
         page_text = BeautifulSoup(html, "html.parser").get_text("\n", strip=True)
         if _contains_transcript_keywords(page_text) and len(page_text) > 1000:
             documents.append(TranscriptDocument(url=base_url, text=page_text[:50000], source="html"))
-        discovered_links.extend(_extract_candidate_links(base_url, html))
+        candidate_links.extend(_extract_candidate_links(base_url, html))
 
-    deduped_links = []
+    deduped_links: list[str] = []
     seen_links: set[str] = set()
-    for link in discovered_links:
-        parsed = urlparse(link)
-        if parsed.scheme not in {"http", "https"}:
-            continue
-        clean = link.split("#", 1)[0]
-        if clean in seen_links:
+    for link in [*discovered_links, *candidate_links]:
+        clean = _clean_http_url(link)
+        if not clean or clean in seen_links:
             continue
         seen_links.add(clean)
         deduped_links.append(clean)
 
-    for link in deduped_links[:12]:
+    max_document_links = max(12, min(24, num_quarters * 4))
+    for link in deduped_links[:max_document_links]:
         try:
             text = await _fetch_document_text(link)
         except Exception as exc:
@@ -339,7 +389,7 @@ async def fetch_earnings_transcripts(ticker: str, company_name: str, num_quarter
         ticker,
         num_quarters,
     )
-    documents = await _collect_transcript_documents(ticker)
+    documents = await _collect_transcript_documents(company_name, ticker, num_quarters)
     if not documents:
         logger.info("[CLAUDE_SEARCH] fetch_transcripts | no source documents discovered for ticker=%s", ticker)
         return []
@@ -394,6 +444,55 @@ async def fetch_earnings_transcripts(ticker: str, company_name: str, num_quarter
     elapsed = time.monotonic() - t0
     logger.info("[CLAUDE_SEARCH] fetch_transcripts | done in %5.1fs | returned=%d", elapsed, len(final))
     return final
+
+
+async def gather_and_extract_signals(
+    company_name: str,
+    ticker: str | None,
+    target_dict: dict,
+) -> list[dict]:
+    """
+    One Claude call with web_search covering all 7 source types:
+    earnings transcripts, annual reports, SEBI filings, investor presentations,
+    board resolutions, company website/IR, and press.
+
+    Returns raw signal dicts ready for hydration into Signal models.
+    """
+    t0 = time.monotonic()
+    logger.info(
+        "[CLAUDE_SEARCH] signal_gather | company=%r | ticker=%s",
+        company_name,
+        ticker or "none",
+    )
+    try:
+        result = await call_claude(
+            prompt=build_signal_gather_prompt(company_name, ticker, target_dict),
+            system_prompt=SIGNAL_GATHER_SYSTEM_PROMPT,
+            max_tokens=4096,
+            temperature=0.0,
+            response_json=True,
+            label=f"signal_gather/{company_name[:30]}",
+            tools=[_web_search_tool(max_uses=14)],   # 2 searches × 7 source types
+            tool_choice=_force_web_search_choice(),
+        )
+        rows = result if isinstance(result, list) else []
+        elapsed = time.monotonic() - t0
+        logger.info(
+            "[CLAUDE_SEARCH] signal_gather | done in %5.1fs | signals=%d | company=%r",
+            elapsed,
+            len(rows),
+            company_name,
+        )
+        return rows
+    except Exception as exc:
+        elapsed = time.monotonic() - t0
+        logger.warning(
+            "[CLAUDE_SEARCH] signal_gather | FAILED in %5.1fs | company=%r | error=%s",
+            elapsed,
+            company_name,
+            exc,
+        )
+        return []
 
 
 async def fetch_ma_press_signals(company_name: str, ticker: str | None, target_profile: dict) -> str:

@@ -15,7 +15,7 @@ export const DEFAULT_FILTERS: UserFilters = {
   revenue_max_usd_m: null,
   geography: "India",
   custom_signal_keywords: [],
-  num_results: 25,
+  num_results: 8,
 };
 
 export const PERSONA_LABELS: Record<string, string> = {
@@ -34,6 +34,28 @@ export const SIGNAL_STRENGTH_COLORS: Record<string, string> = {
   high: "text-green-600 bg-green-50 border-green-200",
   medium: "text-yellow-600 bg-yellow-50 border-yellow-200",
   low: "text-gray-500 bg-gray-50 border-gray-200",
+};
+
+export const SOURCE_TYPE_LABELS: Record<string, string> = {
+  earnings_transcript:   "Earnings Call",
+  annual_report:         "Annual Report",
+  sebi_filing:           "SEBI Filing",
+  investor_presentation: "Investor Presentation",
+  board_resolution:      "Board Resolution",
+  company_website:       "IR / Website",
+  press:                 "Press",
+  unknown:               "Source",
+};
+
+export const SOURCE_TYPE_COLORS: Record<string, string> = {
+  earnings_transcript:   "bg-blue-50 text-blue-700 border-blue-200",
+  annual_report:         "bg-purple-50 text-purple-700 border-purple-200",
+  sebi_filing:           "bg-orange-50 text-orange-700 border-orange-200",
+  investor_presentation: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  board_resolution:      "bg-red-50 text-red-700 border-red-200",
+  company_website:       "bg-teal-50 text-teal-700 border-teal-200",
+  press:                 "bg-gray-50 text-gray-600 border-gray-200",
+  unknown:               "bg-gray-50 text-gray-400 border-gray-200",
 };
 
 export const DIMENSION_LABELS: Record<string, string> = {
