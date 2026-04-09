@@ -57,15 +57,10 @@ export function LoadingSteps({ currentStep, progressPct }: Props) {
           </div>
         </div>
 
-        <div className="pt-4 border-t border-stone-100">
-          <div className="flex items-start gap-3">
-            <div className="w-5 h-5 rounded-full bg-stone-50 flex items-center justify-center shrink-0 mt-0.5">
-              <span className="text-[10px]">ℹ️</span>
-            </div>
-            <p className="text-xs text-stone-400 leading-relaxed italic">
-              Heavy enrichment is enabled: This involves full-text transcript search across {6} quarters for every candidate detected. This may take up to {5} minutes for deep analysis.
-            </p>
-          </div>
+        <div className="pt-4 border-t border-stone-100 flex justify-center text-center">
+          <p className="text-xs text-stone-400 leading-relaxed italic max-w-sm">
+            Our intelligence engine is currently cross-referencing global financial disclosures and management commentary to ensure precise alignment with your mandate. High-fidelity signal extraction in progress.
+          </p>
         </div>
       </div>
     </div>
