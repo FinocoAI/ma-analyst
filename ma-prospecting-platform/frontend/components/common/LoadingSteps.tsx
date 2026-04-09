@@ -5,20 +5,69 @@ interface Props {
 
 export function LoadingSteps({ currentStep, progressPct }: Props) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 gap-6">
-      <div className="w-full max-w-md">
-        <div className="flex justify-between text-sm text-gray-500 mb-2">
-          <span>{currentStep}</span>
-          <span>{progressPct.toFixed(0)}%</span>
+    <div className="flex flex-col items-center justify-center py-20 px-4 min-h-[400px]">
+      <div className="w-full max-w-lg bg-white rounded-2xl border border-stone-200 shadow-sm p-8 space-y-8 animate-in fade-in zoom-in duration-500">
+        <div className="flex flex-col items-center text-center space-y-3">
+          {/* Animated Spinner Core */}
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 rounded-full border-4 border-stone-100" />
+            <div 
+              className="absolute inset-0 rounded-full border-4 border-stone-700 border-t-transparent animate-spin" 
+              style={{ animationDuration: '0.8s' }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-xs font-bold text-stone-600 tracking-tighter">M&A</span>
+            </div>
+          </div>
+          
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold text-stone-900 tracking-tight">
+              Executing Prospecting Pipeline
+            </h3>
+            <p className="text-sm text-stone-500 max-w-sm">
+              Our agents are currently scanning global transcripts and filings for inorganic growth signals.
+            </p>
+          </div>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className="bg-stone-700 h-2 rounded-full transition-all duration-500"
-            style={{ width: `${progressPct}%` }}
-          />
+
+        <div className="space-y-4">
+          <div className="flex justify-between items-end">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest leading-none mb-1">
+                Current Operation
+              </span>
+              <span className="text-sm font-medium text-stone-700 animate-pulse">
+                {currentStep}
+              </span>
+            </div>
+            <span className="text-2xl font-bold font-mono text-stone-900 tabular-nums">
+              {progressPct.toFixed(0)}%
+            </span>
+          </div>
+
+          <div className="relative">
+            <div className="w-full bg-stone-100 rounded-full h-3 overflow-hidden">
+              <div
+                className="bg-stone-800 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(43,43,43,0.3)]"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            {/* Glossy overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-stone-100">
+          <div className="flex items-start gap-3">
+            <div className="w-5 h-5 rounded-full bg-stone-50 flex items-center justify-center shrink-0 mt-0.5">
+              <span className="text-[10px]">ℹ️</span>
+            </div>
+            <p className="text-xs text-stone-400 leading-relaxed italic">
+              Heavy enrichment is enabled: This involves full-text transcript search across {6} quarters for every candidate detected. This may take up to {5} minutes for deep analysis.
+            </p>
+          </div>
         </div>
       </div>
-      <p className="text-sm text-gray-400">This may take a few minutes...</p>
     </div>
   );
 }

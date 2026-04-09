@@ -15,9 +15,9 @@ from app.storage.repositories import create_pipeline_run, get_pipeline_run, upda
 
 logger = logging.getLogger(__name__)
 
-PROSPECTING_TIMEOUT_SECONDS = 240
-SIGNAL_EXTRACTION_TIMEOUT_SECONDS = 300
-SCORING_TIMEOUT_SECONDS = 180
+PROSPECTING_TIMEOUT_SECONDS = 600
+SIGNAL_EXTRACTION_TIMEOUT_SECONDS = 900
+SCORING_TIMEOUT_SECONDS = 480
 
 
 async def start_pipeline(request: PipelineRunRequest) -> str:

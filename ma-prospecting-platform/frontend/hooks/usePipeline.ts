@@ -44,7 +44,11 @@ export function usePipeline() {
         }));
       }
     } catch (e: any) {
-      setState((prev) => ({ ...prev, error: e.message }));
+      setState((prev) => ({ 
+        ...prev, 
+        status: "failed", 
+        error: e.message || "Failed to connect to analysis engine" 
+      }));
     }
   }, []);
 

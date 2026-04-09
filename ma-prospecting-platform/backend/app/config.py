@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     # Claude Config
     claude_model: str = "claude-haiku-4-5-20251001"
     claude_max_retries: int = 3
-    claude_timeout_seconds: int = 60
+    claude_timeout_seconds: int = 240
 
     # Pipeline Defaults
     default_num_results: int = 25
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # Prospect funnel: generate more candidates than UI num_results, trim after scoring
     prospect_overfetch_multiplier: float = 2.0
     prospect_max_internal: int = 60
-    prospect_track_timeout_seconds: int = 120
+    prospect_track_timeout_seconds: int = 600
     # Signal pre-filter: "strict" = regex gate before Claude; "off" = always run extraction
     signal_prefilter_mode: str = "strict"
     # Optional live web-search enrichment for press / IR mentions
