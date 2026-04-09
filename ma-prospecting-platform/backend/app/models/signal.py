@@ -19,12 +19,24 @@ class SignalStrength(str, Enum):
     LOW = "low"
 
 
+class SourceType(str, Enum):
+    EARNINGS_TRANSCRIPT = "earnings_transcript"
+    ANNUAL_REPORT = "annual_report"
+    SEBI_FILING = "sebi_filing"
+    INVESTOR_PRESENTATION = "investor_presentation"
+    BOARD_RESOLUTION = "board_resolution"
+    COMPANY_WEBSITE = "company_website"
+    PRESS = "press"
+    UNKNOWN = "unknown"
+
+
 class Signal(BaseModel):
     id: str
     prospect_id: str
     quote: str
     signal_type: SignalType
     strength: SignalStrength
+    source_type: SourceType = SourceType.UNKNOWN
     source_document: str
     source_quarter: str
     source_url: str | None = None

@@ -11,14 +11,16 @@ class Settings(BaseSettings):
     claude_timeout_seconds: int = 240
 
     # Pipeline Defaults
-    default_num_results: int = 25
+    default_num_results: int = 8
     default_geography: str = "India"
-    transcript_quarters: int = 6
-    max_concurrent_claude_calls: int = 10
+    transcript_quarters: int = 4
+    max_concurrent_claude_calls: int = 8
     # Prospect funnel: generate more candidates than UI num_results, trim after scoring
-    prospect_overfetch_multiplier: float = 2.0
+    prospect_overfetch_multiplier: float = 2.5
     prospect_max_internal: int = 60
     prospect_track_timeout_seconds: int = 600
+    # Signal extraction: limit to top-N prospects by heuristic pre-sort before running gather
+    signal_extraction_limit: int = 8
     # Signal pre-filter: "strict" = regex gate before Claude; "off" = always run extraction
     signal_prefilter_mode: str = "strict"
     # Optional live web-search enrichment for press / IR mentions

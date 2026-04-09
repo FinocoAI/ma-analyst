@@ -1,4 +1,13 @@
 export type BuyerPersona = "strategic" | "private_equity" | "conglomerate";
+export type SourceType =
+  | "earnings_transcript"
+  | "annual_report"
+  | "sebi_filing"
+  | "investor_presentation"
+  | "board_resolution"
+  | "company_website"
+  | "press"
+  | "unknown";
 export type SignalType =
   | "acquisition_intent"
   | "sector_expansion"
@@ -66,6 +75,7 @@ export interface Signal {
   quote: string;
   signal_type: SignalType;
   strength: SignalStrength;
+  source_type: SourceType;
   source_document: string;
   source_quarter: string;
   source_url: string | null;

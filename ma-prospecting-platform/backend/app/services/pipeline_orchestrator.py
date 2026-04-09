@@ -9,7 +9,7 @@ from app.models.scoring import ScoringWeights
 from app.models.target import TargetProfile
 from app.services.prospect_generator import generate_prospects
 from app.services.scorer import score_all_prospects
-from app.services.signal_extractor import extract_all_signals
+from app.services.signal_extractor import extract_all_signals, select_top_prospects
 from app.services.target_profiler import scrape_and_profile
 from app.storage.repositories import create_pipeline_run, get_pipeline_run, update_pipeline_run
 
@@ -126,21 +126,24 @@ async def _run_steps_2_to_4(
             timeout=PROSPECTING_TIMEOUT_SECONDS,
         )
         timings["prospecting"] = round(time.monotonic() - t0, 2)
-        await update_pipeline_run(run_id, prospects=[p.model_dump() for p in prospects], step_timings=timings)
+
+        # Pre-sort by heuristic and trim to signal_extraction_limit before signal step
+        top_prospects = select_top_prospects(prospects, settings.signal_extraction_limit)
+        await update_pipeline_run(run_id, prospects=[p.model_dump() for p in top_prospects], step_timings=timings)
         logger.info(
-            "[PIPELINE] %s | Step 2 DONE in %5.1fs | prospects=%d | known_symbols=%d",
+            "[PIPELINE] %s | Step 2 DONE in %5.1fs | generated=%d | selected_for_signals=%d",
             run_id,
             timings["prospecting"],
             len(prospects),
-            len(known_listed_symbols),
+            len(top_prospects),
         )
 
-        logger.info("[PIPELINE] %s | Step 3 START | signal extraction", run_id)
+        logger.info("[PIPELINE] %s | Step 3 START | signal gather+extract | prospects=%d", run_id, len(top_prospects))
         await update_pipeline_run(run_id, status=PipelineStatus.EXTRACTING_SIGNALS.value)
         t0 = time.monotonic()
         signals_map = await asyncio.wait_for(
             extract_all_signals(
-                prospects=prospects,
+                prospects=top_prospects,
                 target_profile=target_profile,
                 custom_keywords=filters.custom_signal_keywords,
                 known_listed_symbols=known_listed_symbols,
@@ -156,15 +159,15 @@ async def _run_steps_2_to_4(
             run_id,
             timings["signal_extraction"],
             total_signals,
-            len(prospects),
+            len(top_prospects),
         )
 
-        logger.info("[PIPELINE] %s | Step 4 START | scoring", run_id)
+        logger.info("[PIPELINE] %s | Step 4 START | scoring | prospects=%d", run_id, len(top_prospects))
         await update_pipeline_run(run_id, status=PipelineStatus.SCORING.value)
         t0 = time.monotonic()
         scored_prospects = await asyncio.wait_for(
             score_all_prospects(
-                prospects=prospects,
+                prospects=top_prospects,
                 signals_map=signals_map,
                 target_profile=target_profile,
                 weights=weights,

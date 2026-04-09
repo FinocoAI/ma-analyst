@@ -1,5 +1,5 @@
 import { Signal } from "@/lib/types";
-import { SIGNAL_STRENGTH_COLORS } from "@/lib/constants";
+import { SIGNAL_STRENGTH_COLORS, SOURCE_TYPE_COLORS, SOURCE_TYPE_LABELS } from "@/lib/constants";
 
 function getSourceLabel(sourceUrl: string) {
   try {
@@ -11,6 +11,7 @@ function getSourceLabel(sourceUrl: string) {
 
 export function SignalCard({ signal }: { signal: Signal }) {
   const signalTypeLabel = signal.signal_type.replace(/_/g, " ").toUpperCase();
+  const sourceType = signal.source_type || "unknown";
 
   return (
     <div className={`group border rounded-xl overflow-hidden transition-all hover:shadow-md ${SIGNAL_STRENGTH_COLORS[signal.strength]} flex flex-col`}>
@@ -20,6 +21,10 @@ export function SignalCard({ signal }: { signal: Signal }) {
           <div className="w-2 h-2 rounded-full bg-current opacity-60" />
           <span className="text-[10px] font-bold tracking-widest uppercase opacity-70">
             {signalTypeLabel}
+          </span>
+          {/* Source type badge */}
+          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${SOURCE_TYPE_COLORS[sourceType]}`}>
+            {SOURCE_TYPE_LABELS[sourceType]}
           </span>
         </div>
         <div className="flex items-center gap-2">
