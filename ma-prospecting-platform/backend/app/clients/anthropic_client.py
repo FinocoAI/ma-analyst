@@ -86,8 +86,9 @@ async def call_claude(
 
     content = _extract_text_content(response)
     usage = response.usage
-    server_tool_usage = getattr(response, "server_tool_usage", None)
-    web_search_requests = getattr(server_tool_usage, "web_search_requests", 0) if server_tool_usage else 0
+    # server_tool_use lives under usage, not on the top-level response object
+    server_tool_use = getattr(usage, "server_tool_use", None)
+    web_search_requests = getattr(server_tool_use, "web_search_requests", 0) if server_tool_use else 0
     logger.info(
         "[CLAUDE] %-28s | done in %5.1fs | in_tokens=%d | out_tokens=%d | response_chars=%d | web_searches=%d",
         label, elapsed,

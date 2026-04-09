@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 
 from app.clients.anthropic_client import call_claude
 from app.clients.scraper import fetch_html_best_effort, scrape_url_detailed
+from app.config import settings
 from app.prompts.claude_search import (
     LISTED_CANDIDATES_SYSTEM_PROMPT,
     MA_PRESS_SYSTEM_PROMPT,
@@ -184,6 +185,7 @@ async def enrich_url_contents(url: str, thin_text: str) -> str:
         text = await call_claude(
             prompt=build_profile_enrichment_prompt(url, thin_text),
             system_prompt=PROFILE_ENRICHMENT_SYSTEM_PROMPT,
+            model=settings.claude_search_model,
             max_tokens=1800,
             temperature=0.1,
             response_json=False,
@@ -207,11 +209,12 @@ async def generate_company_candidates_listed(target_profile: dict, filters: dict
         result = await call_claude(
             prompt=build_listed_candidates_prompt(target_profile, filters, budget),
             system_prompt=LISTED_CANDIDATES_SYSTEM_PROMPT,
+            model=settings.claude_search_model,
             max_tokens=4096,
             temperature=0.2,
             response_json=True,
             label="claude_search/listed_candidates",
-            tools=[_web_search_tool(max_uses=8)],
+            tools=[_web_search_tool(max_uses=3)],
             tool_choice=_force_web_search_choice(),
         )
         rows = result if isinstance(result, list) else []
@@ -237,11 +240,12 @@ async def generate_company_candidates_private(target_profile: dict, filters: dic
         result = await call_claude(
             prompt=build_private_candidates_prompt(target_profile, filters, budget),
             system_prompt=PRIVATE_CANDIDATES_SYSTEM_PROMPT,
+            model=settings.claude_search_model,
             max_tokens=3072,
             temperature=0.2,
             response_json=True,
             label="claude_search/private_candidates",
-            tools=[_web_search_tool(max_uses=8)],
+            tools=[_web_search_tool(max_uses=3)],
             tool_choice=_force_web_search_choice(),
         )
         rows = result if isinstance(result, list) else []
@@ -267,6 +271,7 @@ async def resolve_ticker(company_name: str, ticker_hint: str | None) -> str | No
         result = await call_claude(
             prompt=build_ticker_resolution_prompt(company_name, ticker_hint),
             system_prompt=TICKER_RESOLUTION_SYSTEM_PROMPT,
+            model=settings.claude_search_model,
             max_tokens=256,
             temperature=0.0,
             response_json=True,
@@ -450,13 +455,14 @@ async def gather_and_extract_signals(
     company_name: str,
     ticker: str | None,
     target_dict: dict,
-) -> list[dict]:
+) -> list[dict] | None:
     """
     One Claude call with web_search covering all 7 source types:
     earnings transcripts, annual reports, SEBI filings, investor presentations,
     board resolutions, company website/IR, and press.
 
     Returns raw signal dicts ready for hydration into Signal models.
+    Returns None on API failure (529, timeout) so the caller can skip caching.
     """
     t0 = time.monotonic()
     logger.info(
@@ -468,11 +474,14 @@ async def gather_and_extract_signals(
         result = await call_claude(
             prompt=build_signal_gather_prompt(company_name, ticker, target_dict),
             system_prompt=SIGNAL_GATHER_SYSTEM_PROMPT,
-            max_tokens=4096,
+            # web_search tool overhead: ~60-70 tokens per search call × 10 searches = ~700 tokens
+            # + JSON output for signals: ~200-400 tokens per signal × up to 10 signals = ~4000 tokens
+            # Total headroom needed: ~6000-8000 tokens
+            max_tokens=8192,
             temperature=0.0,
             response_json=True,
             label=f"signal_gather/{company_name[:30]}",
-            tools=[_web_search_tool(max_uses=14)],   # 2 searches × 7 source types
+            tools=[_web_search_tool(max_uses=10)],   # 10 searches across 7 source types
             tool_choice=_force_web_search_choice(),
         )
         rows = result if isinstance(result, list) else []
@@ -492,7 +501,7 @@ async def gather_and_extract_signals(
             company_name,
             exc,
         )
-        return []
+        return None  # None = failure, distinct from [] = "searched but found nothing"
 
 
 async def fetch_ma_press_signals(company_name: str, ticker: str | None, target_profile: dict) -> str:
