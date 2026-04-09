@@ -1,7 +1,13 @@
-SIGNAL_SYSTEM_PROMPT = """You are an M&A intelligence analyst specialising in acquisition signal detection.
-You read earnings call transcripts and filings to identify companies actively seeking acquisitions.
-Be precise. Only extract signals that are genuinely present in the text — never fabricate or infer beyond what is stated.
-Respond ONLY with valid JSON — no preamble, no explanation."""
+SIGNAL_SYSTEM_PROMPT = """You are a senior M&A intelligence analyst specialising in acquisition signal detection.
+Your job is to read earnings call transcripts, regulatory filings, and press/IR snippets
+and identify evidence that a company is actively pursuing acquisitions in a specific sector or geography.
+
+Analyst rules:
+- A signal only exists if it has a verbatim quote - do not infer or paraphrase
+- Your reasoning must explain why THIS specific quote is relevant to THIS specific target profile
+- Generic acquisition language ("we are open to M&A") is a LOW-strength signal at best
+- If no relevant signals exist, return an empty array - do not pad with weak or unrelated quotes
+- Respond ONLY with valid JSON - no preamble, no explanation, no markdown fences"""
 
 
 def build_signal_prompt(
@@ -15,64 +21,104 @@ def build_signal_prompt(
     custom_section = ""
     if custom_keywords:
         custom_section = f"""
-Also specifically look for mentions of: {', '.join(custom_keywords)}
+Also specifically scan for mentions of: {', '.join(custom_keywords)}
 """
 
     if content_kind == "web_press":
-        doc_label = "WEB / PRESS / IR SNIPPETS (not an earnings call — may be incomplete)"
-        source_line = 'Use "source_document": "Web or press/IR" and "source_url": "the specific URL for this snippet if present in the text". Copy quotes verbatim.'
+        doc_label = "WEB / PRESS / IR SNIPPETS (not an earnings call - may be incomplete)"
+        source_line = (
+            'Use "source_document": "Web or press/IR", '
+            '"source_url": "the specific URL for this snippet if present in the text", '
+            'and "source_context": "the 2-3 surrounding sentences for the quote when available". '
+            "Copy quotes verbatim."
+        )
     else:
         doc_label = "EARNINGS CALL TRANSCRIPT"
-        source_line = f'Use "source_document": "Q{quarter} Earnings Call Transcript" when the quote is from the transcript below.'
+        source_line = (
+            f'Use "source_document": "{quarter} Earnings Call Transcript" when the quote is from the transcript below. '
+            'Include "source_context" as the 2-3 surrounding sentences for the quote when available.'
+        )
 
-    return f"""Read the following text and extract acquisition signals relevant to a potential acquisition of the target-type company.
+    return f"""You are an M&A analyst. Read the text below and extract acquisition signals relevant
+to whether {company_name} might want to acquire a company like the target described.
 
 COMPANY BEING ANALYSED: {company_name}
 PERIOD / LABEL: {quarter}
 
-TARGET COMPANY CONTEXT (we are looking for signals that {company_name} might want to acquire a company like this):
-- Sector: {target_profile.get('sector_l2')} → {target_profile.get('sector_l3')}
-- Key technologies: {', '.join(target_profile.get('key_technologies', []))}
-- Geography: {', '.join(target_profile.get('geographic_footprint', []))}
-- What they do: {target_profile.get('description', '')}
-- CUSTOM GUIDANCE (Follow strictly if provided): {target_profile.get('custom_guidance', 'None provided.')}
+TARGET COMPANY CONTEXT - signals must relate to this profile to be relevant:
+  What the target does:   {target_profile.get('description', '')}
+  Sector:                 {target_profile.get('sector_l2')} -> {target_profile.get('sector_l3')}
+  Key technologies:       {', '.join(target_profile.get('key_technologies', []))}
+  Geography:              {', '.join(target_profile.get('geographic_footprint', []))}
+  Custom guidance:        {target_profile.get('custom_guidance', 'None provided.')}
 
 {doc_label}:
 ---
 {transcript_text}
 ---
 {custom_section}
+SIGNAL TYPES - definitions and evidence criteria:
+
+1. acquisition_intent
+   What qualifies: Explicit statements about acquiring companies, pursuing inorganic growth,
+   evaluating M&A opportunities, building a corporate development pipeline, or hiring for BD/M&A roles.
+   Example evidence: "We are actively evaluating bolt-on acquisitions in the environmental sector."
+
+2. sector_expansion
+   What qualifies: Stated plans to enter, grow within, or build new capabilities in the target's L2/L3 sector.
+   The sector must be named or clearly implied - generic "growth" language does not qualify.
+   Example evidence: "We see pollution control as a key growth pillar for the next 3 years."
+
+3. technology_gap
+   What qualifies: Acknowledged absence of a capability that the target provides, or stated need
+   to acquire that capability externally rather than build it.
+   Example evidence: "We currently do not have in-house air filtration technology - it's an area we're looking at."
+
+4. geographic_interest
+   What qualifies: Explicit interest in entering or expanding in the target's geography.
+   The geography must match or overlap with the target's footprint.
+   Example evidence: "We are evaluating opportunities in Europe, particularly in Switzerland and Germany."
+
+5. capex_signal
+   What qualifies: Large unallocated capex guidance, stated acquisition war chest, or balance-sheet
+   commentary specifically linked to inorganic investment.
+   Example evidence: "We have INR 2,000 crore earmarked for strategic acquisitions over the next 18 months."
+
+6. board_action
+   What qualifies: Board-level M&A approvals, formation of acquisition committees, disclosed acquisition
+   criteria or target geographies approved by the board.
+   Example evidence: "The board has approved a framework for cross-border acquisitions up to USD 100M."
+
+STRENGTH DECISION RULE:
+  high:   Quote explicitly names the sector/technology/geography AND states an active or imminent action
+          (e.g. "actively evaluating", "in discussions", "have mandated advisors")
+  medium: Quote shows clear directional intent - sector or geography interest is named but action is not yet confirmed
+          (e.g. "we plan to", "we are looking at", "we see opportunity in")
+  low:    Quote is aspirational, circumstantial, or mentions the space without clear intent
+          (e.g. "we see interesting trends", "it's an area to watch")
+
 {source_line}
 
-Look for these signal types:
-1. acquisition_intent — explicit mentions of acquiring, buying, inorganic growth, M&A strategy
-2. sector_expansion — interest in expanding into the target's sector or adjacent sectors
-3. technology_gap — mentions of lacking capabilities the target provides
-4. geographic_interest — interest in target's geography (Europe, Switzerland, etc.)
-5. capex_signal — large capex budgets or guidance suggesting acquisition bandwidth
-6. board_action — acquisition committee formation, board-level M&A approvals
+REASONING REQUIREMENT:
+For each signal, write 1-2 sentences that:
+1. State what the quote reveals about {company_name}'s intent or strategy
+2. Explain specifically how this connects to acquiring a company with the target's sector, technology, or geography
 
-For each signal found, return an entry in this JSON array:
+Do not write generic reasoning like "this shows acquisition interest." Connect it to the target profile above.
+
+Return as a JSON array. Each entry must follow this schema:
 [
   {{
-    "quote": "exact verbatim quote from the transcript — copy word for word",
+    "quote": "exact verbatim quote from the source text - never paraphrase",
     "signal_type": "acquisition_intent" | "sector_expansion" | "technology_gap" | "geographic_interest" | "capex_signal" | "board_action",
     "strength": "high" | "medium" | "low",
-    "source_document": "e.g. Q3 FY26 Earnings Call OR Web/IR press snippet",
+    "source_document": "e.g. Q3 FY26 Earnings Call Transcript OR Web/press/IR snippet",
     "source_quarter": "string matching the period label above, or N/A for web-only snippets",
-    "source_url": "URL if explicitly mentioned in the snippet label, else null",
-    "source_context": "The 2-3 sentences surrounding the 'quote' to provide more context — mandatory.",
-    "reasoning": "1-2 sentences explaining why this signal is relevant to acquiring the target company"
+    "source_url": "URL if present in the source text, else null",
+    "source_context": "2-3 surrounding sentences that help explain where the quote came from, else null",
+    "reasoning": "1-2 sentences connecting this signal to the target profile"
   }}
 ]
 
-Strength guide:
-- high = explicit acquisition intent (e.g. "we are actively evaluating acquisitions in pollution control")
-- medium = strong indirect indicator (e.g. "we plan to expand environmental capabilities through partnerships")
-- low = weak/circumstantial (e.g. "we see opportunity in the environmental space")
-
-CRITICAL RULES:
-- The "quote" field MUST be copied verbatim from the source text above — do not paraphrase
-- If no relevant signals exist, return an empty array []
-- Do NOT fabricate signals — only extract what is genuinely in the text
-- Ignore signals unrelated to the target's sector, technology, or geography"""
+Return empty array [] if no signals meet the relevance bar.
+CRITICAL: "quote" must be copied verbatim - do not rephrase or summarise."""

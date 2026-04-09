@@ -111,6 +111,7 @@ async def _extract_for_prospect(
         for transcript in transcripts:
             content = transcript.get("content", "")
             quarter = f"Q{transcript.get('quarter')} FY{str(transcript.get('year', ''))[-2:]}"
+            source_url = transcript.get("source_url")
 
             if not has_acquisition_keywords(content, custom_keywords, mode=prefilter_mode):
                 logger.debug("[SIGNALS] %-35s | %s | prefilter SKIP (mode=%s)", prospect.company_name, quarter, prefilter_mode)
@@ -121,7 +122,7 @@ async def _extract_for_prospect(
             cached = await cache_get(cache_key)
             if cached is not None:
                 cache_hits += 1
-                sigs_from_cache = [Signal(**s) for s in cached]
+                sigs_from_cache = [_hydrate_signal_source(Signal(**s), source_url) for s in cached]
                 logger.info("[SIGNALS] %-35s | %s | cache HIT - %d signals", prospect.company_name, quarter, len(sigs_from_cache))
                 all_signals.extend(sigs_from_cache)
                 continue
@@ -136,7 +137,7 @@ async def _extract_for_prospect(
                 prospect_id=prospect.id,
                 custom_keywords=custom_keywords or None,
                 content_kind="earnings_call",
-                source_url=transcript.get("source_url"),
+                source_url=source_url,
             )
             logger.info("[SIGNALS] %-35s | %s | Claude returned %d signals", prospect.company_name, quarter, len(signals))
 
@@ -247,6 +248,7 @@ async def _extract_from_transcript(
             source_document=s.get("source_document", f"{quarter} Earnings Call"),
             source_quarter=s.get("source_quarter", quarter),
             source_url=s.get("source_url") or source_url,
+            source_context=s.get("source_context"),
             reasoning=s.get("reasoning", ""),
         )
         for s in all_raw_signals
@@ -266,6 +268,13 @@ def _generate_private_signals(prospect: Prospect) -> list[Signal]:
             strength=SignalStrength.MEDIUM if prospect.sector_relevance == "exact_match" else SignalStrength.LOW,
             source_document="Company Profile",
             source_quarter="N/A",
+            source_url=prospect.website_url,
             reasoning=f"Private company with {prospect.sector_relevance} sector relevance and complementary product mix.",
         )
     ]
+
+
+def _hydrate_signal_source(signal: Signal, source_url: str | None) -> Signal:
+    if signal.source_url or not source_url:
+        return signal
+    return signal.model_copy(update={"source_url": source_url})

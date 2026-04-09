@@ -1,6 +1,14 @@
 import { Signal } from "@/lib/types";
 import { SIGNAL_STRENGTH_COLORS } from "@/lib/constants";
 
+function getSourceLabel(sourceUrl: string) {
+  try {
+    return new URL(sourceUrl).hostname.replace(/^www\./, "");
+  } catch {
+    return "Source";
+  }
+}
+
 export function SignalCard({ signal }: { signal: Signal }) {
   const signalTypeLabel = signal.signal_type.replace(/_/g, " ").toUpperCase();
 
@@ -23,8 +31,9 @@ export function SignalCard({ signal }: { signal: Signal }) {
               target="_blank"
               rel="noopener noreferrer"
               className="text-[10px] font-bold underline hover:no-underline flex items-center gap-0.5"
+              title={signal.source_url}
             >
-              {signal.source_document}
+              {signal.source_document} ({getSourceLabel(signal.source_url)})
               <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
