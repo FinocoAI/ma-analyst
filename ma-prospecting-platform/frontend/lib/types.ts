@@ -69,6 +69,7 @@ export interface Signal {
   source_document: string;
   source_quarter: string;
   source_url: string | null;
+  source_context: string | null;
   reasoning: string;
 }
 

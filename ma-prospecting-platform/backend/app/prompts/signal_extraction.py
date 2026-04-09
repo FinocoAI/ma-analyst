@@ -61,6 +61,7 @@ For each signal found, return an entry in this JSON array:
     "source_document": "e.g. Q3 FY26 Earnings Call OR Web/IR press snippet",
     "source_quarter": "string matching the period label above, or N/A for web-only snippets",
     "source_url": "URL if explicitly mentioned in the snippet label, else null",
+    "source_context": "The 2-3 sentences surrounding the 'quote' to provide more context — mandatory.",
     "reasoning": "1-2 sentences explaining why this signal is relevant to acquiring the target company"
   }}
 ]

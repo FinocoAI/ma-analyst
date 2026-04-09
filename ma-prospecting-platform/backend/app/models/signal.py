@@ -28,4 +28,5 @@ class Signal(BaseModel):
     source_document: str
     source_quarter: str
     source_url: str | None = None
+    source_context: str | None = None
     reasoning: str
