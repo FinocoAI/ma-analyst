@@ -27,7 +27,24 @@ def _fallback_name_from_url(url: str) -> str:
 def _normalize_url(url: str) -> str:
     if not url:
         return url
-    return url if url.startswith(("http://", "https://")) else f"https://{url}"
+    
+    # Remove all whitespace (URLs shouldn't have internal spaces)
+    url = "".join(url.split())
+    
+    normalized = url if url.startswith(("http://", "https://")) else f"https://{url}"
+    
+    parsed = urlparse(normalized)
+    # parsed.hostname correctly ignores port numbers
+    host = (parsed.hostname or parsed.netloc.split(":")[0]).lower()
+    
+    if not host:
+        raise ValueError(f"Invalid URL: '{url}'")
+    
+    # Basic validation: ensure hostname has a dot (e.g. apple.com) or is localhost
+    if "." not in host and host != "localhost":
+        raise ValueError(f"Invalid domain: '{host}'. Please provide a full domain (e.g. {host}.com)")
+        
+    return normalized
 
 
 def _normalize_profile_dict(data: dict, url: str) -> dict:

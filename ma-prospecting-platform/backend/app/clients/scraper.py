@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from typing import Literal
+from urllib.parse import urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -70,29 +71,36 @@ async def _fetch_html_httpx(url: str, timeout: int) -> tuple[str, bool]:
     Returns (html, used_curl_fallback).
     On 403, retries with Referer then curl_cffi.
     """
-    async with httpx.AsyncClient(follow_redirects=True, timeout=timeout, verify=False) as client:
-        response = await client.get(url, headers=DEFAULT_BROWSER_HEADERS)
-        if response.status_code == 403:
-            logger.warning("Got 403 — retrying with Referer fallback for %s", url)
-            response = await client.get(
-                url,
-                headers={
-                    **DEFAULT_BROWSER_HEADERS,
-                    "Referer": "https://www.google.com/",
-                    "Sec-Fetch-Site": "cross-site",
-                },
-            )
-        if response.status_code == 403:
-            logger.warning(
-                "403 with httpx (often Cloudflare); using curl_cffi browser impersonation for %s",
-                url,
-            )
-            html = await _fetch_html_curl_cffi(url, timeout)
-            return html, True
-        response.raise_for_status()
-        ct = response.headers.get("content-type", "")
-        logger.debug("Fetched %s content-type=%s len=%s", url, ct, len(response.text))
-        return response.text, False
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=timeout, verify=False) as client:
+            response = await client.get(url, headers=DEFAULT_BROWSER_HEADERS)
+            if response.status_code == 403:
+                logger.warning("Got 403 — retrying with Referer fallback for %s", url)
+                response = await client.get(
+                    url,
+                    headers={
+                        **DEFAULT_BROWSER_HEADERS,
+                        "Referer": "https://www.google.com/",
+                        "Sec-Fetch-Site": "cross-site",
+                    },
+                )
+            if response.status_code == 403:
+                logger.warning(
+                    "403 with httpx (often Cloudflare); using curl_cffi browser impersonation for %s",
+                    url,
+                )
+                html = await _fetch_html_curl_cffi(url, timeout)
+                return html, True
+            response.raise_for_status()
+            ct = response.headers.get("content-type", "")
+            logger.debug("Fetched %s content-type=%s len=%s", url, ct, len(response.text))
+            return response.text, False
+    except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+        # Check for DNS failure / name resolution error
+        if any(msg in str(e) for msg in ["Errno -3", "Errno -2", "name resolution", "not known"]):
+            domain = urlparse(url).netloc
+            raise ValueError(f"Could not resolve domain '{domain}'. Please check if the URL is correct.") from e
+        raise e
 
 
 async def fetch_html_best_effort(url: str, timeout: int) -> tuple[str, tuple[str, ...]]:
@@ -168,10 +176,20 @@ async def scrape_url(url: str, timeout: int = 30) -> str:
     return result.text
 
 
+def _normalize_url(url: str) -> str:
+    url = "".join((url or "").split())
+    if not url:
+        return ""
+    if not url.startswith(("http://", "https://")):
+        return f"https://{url}"
+    return url
+
+
 async def scrape_url_detailed(url: str, timeout: int = 30) -> ScrapeResult:
     """Scrape with quality-aware curl retry; sets tier high / degraded_curl / low."""
-    if not url.startswith(("http://", "https://")):
-        url = f"https://{url}"
+    url = _normalize_url(url)
+    if not url:
+        raise ValueError("Empty URL provided")
 
     html, methods = await fetch_html_best_effort(url, timeout)
     text = _html_to_text(html, url)
@@ -193,8 +211,9 @@ async def fetch_rendered_text_playwright(url: str, timeout: int = 45) -> str:
             "Playwright not installed. Use: pip install playwright && playwright install chromium"
         ) from e
 
-    if not url.startswith(("http://", "https://")):
-        url = f"https://{url}"
+    url = _normalize_url(url)
+    if not url:
+        raise ValueError("Empty URL provided")
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
